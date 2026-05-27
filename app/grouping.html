@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>護理師甄選成績 S 型分組</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #5d687a;
+      --line: #d8e0ea;
+      --panel: #fff;
+      --page: #f5f7fb;
+      --blue: #205493;
+      --green: #0f766e;
+      --red: #b42318;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "PingFang TC", sans-serif;
+      line-height: 1.45;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: minmax(330px, 430px) minmax(620px, 1fr);
+      gap: 16px;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 10px 24px rgba(23, 32, 51, 0.07);
+    }
+
+    .controls {
+      align-self: start;
+      padding: 18px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 23px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    fieldset {
+      margin: 0 0 16px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    legend {
+      padding: 0 6px;
+      color: var(--blue);
+      font-weight: 800;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      margin: 0 0 12px;
+      color: #2a3546;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid #c8d2df;
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 8px 10px;
+    }
+
+    textarea {
+      min-height: 128px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    button {
+      min-height: 38px;
+      border: 1px solid #b9c6d5;
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      cursor: pointer;
+      font-weight: 800;
+      padding: 8px 12px;
+    }
+
+    button.primary {
+      border-color: var(--blue);
+      background: var(--blue);
+      color: #fff;
+    }
+
+    button.success {
+      border-color: var(--green);
+      background: var(--green);
+      color: #fff;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .preview {
+      overflow: auto;
+      padding: 18px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: #fbfdff;
+    }
+
+    .metric b {
+      display: block;
+      font-size: 22px;
+      line-height: 1.1;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .error {
+      display: none;
+      margin: 0 0 12px;
+      padding: 9px 11px;
+      border: 1px solid #fecaca;
+      border-radius: 6px;
+      background: #fff1f2;
+      color: var(--red);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      background: #fff;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      border: 1px solid #cfd8e3;
+      padding: 7px 8px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: #edf2f7;
+      color: #1f2a3a;
+      z-index: 1;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #f9fbfd;
+    }
+
+    .group-table {
+      margin-top: 18px;
+      max-width: 760px;
+    }
+
+    .back {
+      display: inline-block;
+      margin-bottom: 12px;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    @media (max-width: 980px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .summary {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="controls panel">
+      <a class="back" href="index.html">返回複試時間分配表</a>
+      <h1>成績 S 型分組</h1>
+      <p>匯入成績檔，依「成績」由高到低排序，再用蛇形方式分配到 A-Z 組，最後匯出分組名冊。</p>
+
+      <div class="error" id="errorBox"></div>
+
+      <fieldset>
+        <legend>資料來源</legend>
+        <label>匯入 Excel / CSV
+          <input id="fileInput" type="file" accept=".xlsx,.csv,.tsv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+          <span class="hint">支援附件格式的 .xlsx，也可匯入含「准考證」「成績」欄位的 CSV/TSV。</span>
+        </label>
+        <label>或貼上資料
+          <textarea id="pasteData" placeholder="准考證,成績&#10;01120001,70&#10;01120002,58"></textarea>
+          <span class="hint">若沒有檔案，可貼上 Excel 複製出的表格或 CSV。</span>
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>分組設定</legend>
+        <div class="grid">
+          <label>組數
+            <input id="groupCount" type="number" min="1" max="26" value="4">
+          </label>
+          <label>組別格式
+            <select id="labelMode">
+              <option value="upperGroup">A組、B組</option>
+              <option value="upper">A、B</option>
+              <option value="lower">a、b</option>
+              <option value="lowerGroup">a組、b組</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <button class="primary" id="runBtn" type="button">產生 S 型分組</button>
+        <button class="success" id="exportBtn" type="button" disabled>匯出 CSV</button>
+        <button id="exportFullBtn" type="button" disabled>匯出含成績 CSV</button>
+      </div>
+    </section>
+
+    <section class="preview panel">
+      <div class="summary">
+        <div class="metric"><b id="totalCount">0</b><span>有效考生</span></div>
+        <div class="metric"><b id="groupMetric">0</b><span>組數</span></div>
+        <div class="metric"><b id="topScore">-</b><span>最高分</span></div>
+        <div class="metric"><b id="lowScore">-</b><span>最低分</span></div>
+      </div>
+
+      <table aria-label="S 型分組預覽">
+        <thead>
+          <tr>
+            <th style="width: 72px;">排序</th>
+            <th style="width: 90px;">組別</th>
+            <th>准考證</th>
+            <th style="width: 110px;">成績</th>
+          </tr>
+        </thead>
+        <tbody id="resultBody">
+          <tr><td colspan="4">尚未產生資料</td></tr>
+        </tbody>
+      </table>
+
+      <table class="group-table" aria-label="各組統計">
+        <thead>
+          <tr>
+            <th>組別</th>
+            <th>人數</th>
+            <th>平均成績</th>
+            <th>最高</th>
+            <th>最低</th>
+          </tr>
+        </thead>
+        <tbody id="statsBody">
+          <tr><td colspan="5">尚未產生資料</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    const byId = (id) => document.getElementById(id);
+    let importedRows = [];
+    let assignedRows = [];
+
+    function showError(message) {
+      const box = byId("errorBox");
+      box.textContent = message;
+      box.style.display = message ? "block" : "none";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function groupLabel(index) {
+      const letter = String.fromCharCode(65 + index);
+      const mode = byId("labelMode").value;
+      if (mode === "upper") return letter;
+      if (mode === "lower") return letter.toLowerCase();
+      if (mode === "lowerGroup") return `${letter.toLowerCase()}組`;
+      return `${letter}組`;
+    }
+
+    function parseDelimited(text) {
+      const delimiter = text.includes("\t") ? "\t" : ",";
+      const lines = text.replace(/^\ufeff/, "").split(/\r?\n/).filter((line) => line.trim());
+      return lines.map((line) => parseCsvLine(line, delimiter));
+    }
+
+    function parseCsvLine(line, delimiter) {
+      const cells = [];
+      let current = "";
+      let quoted = false;
+      for (let i = 0; i < line.length; i += 1) {
+        const char = line[i];
+        if (char === '"') {
+          if (quoted && line[i + 1] === '"') {
+            current += '"';
+            i += 1;
+          } else {
+            quoted = !quoted;
+          }
+        } else if (char === delimiter && !quoted) {
+          cells.push(current.trim());
+          current = "";
+        } else {
+          current += char;
+        }
+      }
+      cells.push(current.trim());
+      return cells;
+    }
+
+    function normalizeRows(matrix) {
+      if (!matrix.length) return [];
+      const headerIndex = matrix.findIndex((row) => {
+        const names = row.map((cell) => String(cell ?? "").trim());
+        return names.includes("准考證") && names.includes("成績");
+      });
+      if (headerIndex < 0) {
+        throw new Error("找不到「准考證」與「成績」欄位。");
+      }
+
+      const headers = matrix[headerIndex].map((cell) => String(cell ?? "").trim());
+      const ticketIndex = headers.indexOf("准考證");
+      const scoreIndex = headers.indexOf("成績");
+
+      return matrix.slice(headerIndex + 1)
+        .map((row, originalIndex) => {
+          const ticket = String(row[ticketIndex] ?? "").trim();
+          const score = Number(String(row[scoreIndex] ?? "").trim());
+          return { ticket, score, originalIndex };
+        })
+        .filter((row) => row.ticket && row.ticket !== "標準答案" && Number.isFinite(row.score));
+    }
+
+    async function parseXlsx(file) {
+      const buffer = await file.arrayBuffer();
+      const files = await unzipXlsx(buffer);
+      const workbookXml = await decodeZipText(files, "xl/workbook.xml");
+      const workbookRels = await decodeZipText(files, "xl/_rels/workbook.xml.rels");
+      const sheetPath = findFirstSheetPath(workbookXml, workbookRels);
+      const sharedStrings = files.has("xl/sharedStrings.xml")
+        ? parseSharedStrings(await decodeZipText(files, "xl/sharedStrings.xml"))
+        : [];
+      const sheetXml = await decodeZipText(files, sheetPath);
+      return parseSheetXml(sheetXml, sharedStrings);
+    }
+
+    async function unzipXlsx(buffer) {
+      const view = new DataView(buffer);
+      let eocd = -1;
+      for (let i = view.byteLength - 22; i >= Math.max(0, view.byteLength - 66000); i -= 1) {
+        if (view.getUint32(i, true) === 0x06054b50) {
+          eocd = i;
+          break;
+        }
+      }
+      if (eocd < 0) throw new Error("無法讀取 Excel 壓縮結構。");
+
+      const entries = view.getUint16(eocd + 10, true);
+      const centralDirOffset = view.getUint32(eocd + 16, true);
+      const files = new Map();
+      let offset = centralDirOffset;
+
+      for (let i = 0; i < entries; i += 1) {
+        if (view.getUint32(offset, true) !== 0x02014b50) break;
+        const method = view.getUint16(offset + 10, true);
+        const compressedSize = view.getUint32(offset + 20, true);
+        const uncompressedSize = view.getUint32(offset + 24, true);
+        const fileNameLength = view.getUint16(offset + 28, true);
+        const extraLength = view.getUint16(offset + 30, true);
+        const commentLength = view.getUint16(offset + 32, true);
+        const localOffset = view.getUint32(offset + 42, true);
+        const nameBytes = new Uint8Array(buffer, offset + 46, fileNameLength);
+        const name = new TextDecoder().decode(nameBytes);
+
+        const localNameLength = view.getUint16(localOffset + 26, true);
+        const localExtraLength = view.getUint16(localOffset + 28, true);
+        const dataOffset = localOffset + 30 + localNameLength + localExtraLength;
+        const compressed = buffer.slice(dataOffset, dataOffset + compressedSize);
+        files.set(name, { method, compressed, uncompressedSize });
+        offset += 46 + fileNameLength + extraLength + commentLength;
+      }
+      return files;
+    }
+
+    async function decodeZipText(files, path) {
+      const entry = files.get(path);
+      if (!entry) throw new Error(`Excel 檔缺少 ${path}`);
+      let bytes;
+      if (entry.method === 0) {
+        bytes = new Uint8Array(entry.compressed);
+      } else if (entry.method === 8) {
+        const stream = new Blob([entry.compressed]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+        bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+      } else {
+        throw new Error(`不支援的 Excel 壓縮格式：${entry.method}`);
+      }
+      return new TextDecoder("utf-8").decode(bytes);
+    }
+
+    function findFirstSheetPath(workbookXml, relsXml) {
+      const xml = new DOMParser().parseFromString(workbookXml, "application/xml");
+      const rels = new DOMParser().parseFromString(relsXml, "application/xml");
+      const sheet = xml.querySelector("sheet");
+      if (!sheet) throw new Error("Excel 檔內找不到工作表。");
+      const relId = sheet.getAttribute("r:id") || sheet.getAttribute("id");
+      const rel = Array.from(rels.querySelectorAll("Relationship")).find((item) => item.getAttribute("Id") === relId);
+      const target = rel?.getAttribute("Target") || "worksheets/sheet1.xml";
+      return `xl/${target.replace(/^\/?xl\//, "")}`;
+    }
+
+    function parseSharedStrings(xmlText) {
+      const xml = new DOMParser().parseFromString(xmlText, "application/xml");
+      return Array.from(xml.querySelectorAll("si")).map((item) => {
+        return Array.from(item.querySelectorAll("t")).map((node) => node.textContent || "").join("");
+      });
+    }
+
+    function parseSheetXml(xmlText, sharedStrings) {
+      const xml = new DOMParser().parseFromString(xmlText, "application/xml");
+      const rows = [];
+      xml.querySelectorAll("sheetData row").forEach((rowNode) => {
+        const row = [];
+        rowNode.querySelectorAll("c").forEach((cell) => {
+          const ref = cell.getAttribute("r") || "";
+          const colIndex = columnIndex(ref.replace(/[0-9]/g, ""));
+          const type = cell.getAttribute("t");
+          const valueNode = cell.querySelector("v");
+          const inlineNode = cell.querySelector("is t");
+          let value = "";
+          if (type === "s") {
+            value = sharedStrings[Number(valueNode?.textContent || 0)] ?? "";
+          } else if (type === "inlineStr") {
+            value = inlineNode?.textContent || "";
+          } else {
+            value = valueNode?.textContent || "";
+          }
+          row[colIndex] = value;
+        });
+        rows.push(row);
+      });
+      return rows;
+    }
+
+    function columnIndex(letters) {
+      let index = 0;
+      for (const char of letters) {
+        index = index * 26 + char.charCodeAt(0) - 64;
+      }
+      return Math.max(0, index - 1);
+    }
+
+    function assignGroups(rows, groupCount) {
+      const sorted = [...rows].sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.originalIndex - b.originalIndex;
+      });
+
+      return sorted.map((row, index) => {
+        const band = Math.floor(index / groupCount);
+        const position = index % groupCount;
+        const groupIndex = band % 2 === 0 ? position : groupCount - 1 - position;
+        return {
+          rank: index + 1,
+          groupIndex,
+          group: groupLabel(groupIndex),
+          ticket: row.ticket,
+          score: row.score
+        };
+      });
+    }
+
+    function renderResults(rows) {
+      assignedRows = rows;
+      byId("exportBtn").disabled = !rows.length;
+      byId("exportFullBtn").disabled = !rows.length;
+      byId("resultBody").innerHTML = rows.length
+        ? rows.map((row) => `<tr><td>${row.rank}</td><td>${escapeHtml(row.group)}</td><td>${escapeHtml(row.ticket)}</td><td>${row.score}</td></tr>`).join("")
+        : '<tr><td colspan="4">尚未產生資料</td></tr>';
+
+      const scores = rows.map((row) => row.score);
+      byId("totalCount").textContent = rows.length;
+      byId("groupMetric").textContent = byId("groupCount").value;
+      byId("topScore").textContent = scores.length ? Math.max(...scores) : "-";
+      byId("lowScore").textContent = scores.length ? Math.min(...scores) : "-";
+      renderStats(rows);
+    }
+
+    function renderStats(rows) {
+      if (!rows.length) {
+        byId("statsBody").innerHTML = '<tr><td colspan="5">尚未產生資料</td></tr>';
+        return;
+      }
+      const stats = new Map();
+      rows.forEach((row) => {
+        const item = stats.get(row.group) || { group: row.group, count: 0, sum: 0, high: -Infinity, low: Infinity };
+        item.count += 1;
+        item.sum += row.score;
+        item.high = Math.max(item.high, row.score);
+        item.low = Math.min(item.low, row.score);
+        stats.set(row.group, item);
+      });
+      byId("statsBody").innerHTML = Array.from(stats.values())
+        .sort((a, b) => rows.find((row) => row.group === a.group).groupIndex - rows.find((row) => row.group === b.group).groupIndex)
+        .map((item) => `<tr><td>${escapeHtml(item.group)}</td><td>${item.count}</td><td>${(item.sum / item.count).toFixed(2)}</td><td>${item.high}</td><td>${item.low}</td></tr>`)
+        .join("");
+    }
+
+    async function loadRowsFromInput() {
+      const file = byId("fileInput").files[0];
+      const pasted = byId("pasteData").value.trim();
+      if (file) {
+        const lower = file.name.toLowerCase();
+        if (lower.endsWith(".xlsx")) return normalizeRows(await parseXlsx(file));
+        return normalizeRows(parseDelimited(await file.text()));
+      }
+      if (pasted) return normalizeRows(parseDelimited(pasted));
+      throw new Error("請先匯入 Excel/CSV，或貼上資料。");
+    }
+
+    async function runGrouping() {
+      try {
+        showError("");
+        const groupCount = Number(byId("groupCount").value);
+        if (!Number.isInteger(groupCount) || groupCount < 1 || groupCount > 26) {
+          throw new Error("組數需為 1 到 26。");
+        }
+        importedRows = await loadRowsFromInput();
+        if (!importedRows.length) throw new Error("沒有可分組的有效考生資料。");
+        renderResults(assignGroups(importedRows, groupCount));
+      } catch (error) {
+        renderResults([]);
+        showError(error.message || String(error));
+      }
+    }
+
+    function exportCsv(includeScores) {
+      if (!assignedRows.length) return;
+      const sorted = [...assignedRows].sort((a, b) => a.groupIndex - b.groupIndex || a.rank - b.rank);
+      const headers = includeScores ? ["組別", "准考證", "成績", "排序"] : ["組別", "准考證"];
+      const rows = sorted.map((row) => includeScores
+        ? [row.group, row.ticket, row.score, row.rank]
+        : [row.group, row.ticket]);
+      const csv = [headers, ...rows]
+        .map((items) => items.map((item) => `"${String(item).replaceAll('"', '""')}"`).join(","))
+        .join("\n");
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = includeScores ? "S型分組_含成績.csv" : "S型分組_組別准考證.csv";
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    byId("runBtn").addEventListener("click", runGrouping);
+    byId("exportBtn").addEventListener("click", () => exportCsv(false));
+    byId("exportFullBtn").addEventListener("click", () => exportCsv(true));
+    byId("groupCount").addEventListener("input", () => {
+      if (importedRows.length) renderResults(assignGroups(importedRows, Number(byId("groupCount").value)));
+    });
+    byId("labelMode").addEventListener("change", () => {
+      if (importedRows.length) renderResults(assignGroups(importedRows, Number(byId("groupCount").value)));
+    });
+  </script>
+</body>
+</html>
