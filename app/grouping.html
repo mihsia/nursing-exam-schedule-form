@@ -279,6 +279,10 @@
           <label>組數
             <input id="groupCount" type="number" min="1" max="26" value="4">
           </label>
+          <label>預定進入複試人數
+            <input id="finalistCount" type="number" min="1" placeholder="留空代表全部">
+            <span class="hint">依成績由高到低只取前 N 名後再分組。</span>
+          </label>
           <label>組別格式
             <select id="labelMode">
               <option value="upperGroup">A組、B組</option>
@@ -299,7 +303,7 @@
 
     <section class="preview panel">
       <div class="summary">
-        <div class="metric"><b id="totalCount">0</b><span>有效考生</span></div>
+        <div class="metric"><b id="totalCount">0</b><span>分組考生</span></div>
         <div class="metric"><b id="groupMetric">0</b><span>組數</span></div>
         <div class="metric"><b id="topScore">-</b><span>最高分</span></div>
         <div class="metric"><b id="lowScore">-</b><span>最低分</span></div>
@@ -536,11 +540,36 @@
       return Math.max(0, index - 1);
     }
 
-    function assignGroups(rows, groupCount) {
-      const sorted = [...rows].sort((a, b) => {
+    function getGroupCount() {
+      const groupCount = Number(byId("groupCount").value);
+      if (!Number.isInteger(groupCount) || groupCount < 1 || groupCount > 26) {
+        throw new Error("組數需為 1 到 26。");
+      }
+      return groupCount;
+    }
+
+    function getFinalistCount(totalRows) {
+      const value = byId("finalistCount").value.trim();
+      if (!value) return totalRows;
+      const count = Number(value);
+      if (!Number.isInteger(count) || count < 1) {
+        throw new Error("預定進入複試人數需為正整數。");
+      }
+      if (count > totalRows) {
+        throw new Error(`預定進入複試人數不可大於有效考生數 ${totalRows}。`);
+      }
+      return count;
+    }
+
+    function sortedByScore(rows) {
+      return [...rows].sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
         return a.originalIndex - b.originalIndex;
       });
+    }
+
+    function assignGroups(rows, groupCount, finalistCount) {
+      const sorted = sortedByScore(rows).slice(0, finalistCount);
 
       return sorted.map((row, index) => {
         const band = Math.floor(index / groupCount);
@@ -607,13 +636,21 @@
     async function runGrouping() {
       try {
         showError("");
-        const groupCount = Number(byId("groupCount").value);
-        if (!Number.isInteger(groupCount) || groupCount < 1 || groupCount > 26) {
-          throw new Error("組數需為 1 到 26。");
-        }
         importedRows = await loadRowsFromInput();
         if (!importedRows.length) throw new Error("沒有可分組的有效考生資料。");
-        renderResults(assignGroups(importedRows, groupCount));
+        refreshGrouping();
+      } catch (error) {
+        renderResults([]);
+        showError(error.message || String(error));
+      }
+    }
+
+    function refreshGrouping() {
+      try {
+        showError("");
+        const groupCount = getGroupCount();
+        const finalistCount = getFinalistCount(importedRows.length);
+        renderResults(assignGroups(importedRows, groupCount, finalistCount));
       } catch (error) {
         renderResults([]);
         showError(error.message || String(error));
@@ -643,10 +680,13 @@
     byId("exportBtn").addEventListener("click", () => exportCsv(false));
     byId("exportFullBtn").addEventListener("click", () => exportCsv(true));
     byId("groupCount").addEventListener("input", () => {
-      if (importedRows.length) renderResults(assignGroups(importedRows, Number(byId("groupCount").value)));
+      if (importedRows.length) refreshGrouping();
+    });
+    byId("finalistCount").addEventListener("input", () => {
+      if (importedRows.length) refreshGrouping();
     });
     byId("labelMode").addEventListener("change", () => {
-      if (importedRows.length) renderResults(assignGroups(importedRows, Number(byId("groupCount").value)));
+      if (importedRows.length) refreshGrouping();
     });
   </script>
 </body>
