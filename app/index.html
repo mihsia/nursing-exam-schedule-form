@@ -127,6 +127,36 @@
       font-weight: 400;
     }
 
+    .inline-check {
+      display: flex;
+      grid-column: 1 / -1;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+    }
+
+    .inline-check input {
+      width: auto;
+      min-height: auto;
+    }
+
+    .stamp-preview {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 76px;
+      border: 1px dashed #c8d2df;
+      border-radius: 6px;
+      background: #f8fafc;
+      padding: 10px;
+    }
+
+    .stamp-preview img {
+      max-width: 118px;
+      max-height: 68px;
+      object-fit: contain;
+    }
+
     .tool-head {
       display: grid;
       gap: 8px;
@@ -449,6 +479,25 @@
       </fieldset>
 
       <fieldset>
+        <legend>報表戳章</legend>
+        <div class="grid">
+          <label class="full">上傳甄選圓戳章
+            <input id="stampUpload" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+            <input id="stampData" type="hidden">
+            <span class="hint">上傳後會保存在瀏覽器資料庫與歷史檔中；建議使用 PNG 或 JPG。</span>
+          </label>
+          <label class="inline-check">
+            <input id="showStamp" type="checkbox" checked>
+            報表顯示戳章
+          </label>
+          <div class="stamp-preview full">
+            <img id="stampPreview" alt="目前戳章預覽">
+            <span class="hint" id="stampStatus">目前使用預設戳章。</span>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
         <legend>時間設定</legend>
         <div class="grid">
           <label>引導抽題：報到後幾分鐘
@@ -613,6 +662,8 @@
 01120192`;
 
     const byId = (id) => document.getElementById(id);
+    const reportStamp = document.querySelector(".stamp");
+    const defaultStampSrc = reportStamp.getAttribute("src");
     const historyKey = "nursingExamScheduleHistoryV1";
     const draftKey = "nursingExamScheduleDraftV1";
 
@@ -622,7 +673,11 @@
     }
 
     function fieldData() {
-      return Object.fromEntries(fields.map((id) => [id, byId(id).value]));
+      return {
+        ...Object.fromEntries(fields.map((id) => [id, byId(id).value])),
+        showStamp: byId("showStamp").checked,
+        stampData: byId("stampData").value
+      };
     }
 
     function applyFieldData(data) {
@@ -631,6 +686,10 @@
           byId(id).value = data[id];
         }
       });
+      if (Object.prototype.hasOwnProperty.call(data, "showStamp")) {
+        byId("showStamp").checked = Boolean(data.showStamp);
+      }
+      byId("stampData").value = data.stampData || "";
       render();
     }
 
@@ -827,6 +886,33 @@
       return errors;
     }
 
+    function updateStampView() {
+      const customStamp = byId("stampData").value;
+      const stampSrc = customStamp || defaultStampSrc;
+      const showStamp = byId("showStamp").checked;
+      reportStamp.src = stampSrc;
+      reportStamp.style.display = showStamp ? "block" : "none";
+      byId("stampPreview").src = stampSrc;
+      byId("stampStatus").textContent = customStamp ? "目前使用自訂上傳戳章。" : "目前使用預設戳章。";
+    }
+
+    function handleStampUpload(file) {
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        setDbStatus("請上傳圖片格式的戳章檔。");
+        return;
+      }
+      const reader = new FileReader();
+      reader.addEventListener("load", () => {
+        byId("stampData").value = reader.result;
+        byId("showStamp").checked = true;
+        updateStampView();
+        saveDraft();
+        setDbStatus("已更新報表戳章。");
+      });
+      reader.readAsDataURL(file);
+    }
+
     function makeRows(config) {
       const rows = [];
       let breakMinutes = 0;
@@ -897,6 +983,7 @@
         .split(/\n/)
         .map((line) => `<div>${escapeHtml(line)}</div>`)
         .join("");
+      updateStampView();
 
       const body = byId("scheduleBody");
       const rows = makeRows(config);
@@ -971,6 +1058,9 @@
       byId("oralDuration").value = "2";
       byId("breakRules").value = "7:15:休息\n14:55:休息\n21:15:休息";
       byId("tickets").value = sampleTickets;
+      byId("showStamp").checked = true;
+      byId("stampData").value = "";
+      byId("stampUpload").value = "";
       render();
       saveDraft();
       setDbStatus("已載入附件範例。");
@@ -989,6 +1079,11 @@
     });
     byId("csvBtn").addEventListener("click", exportCsv);
     byId("sampleBtn").addEventListener("click", loadSample);
+    byId("stampUpload").addEventListener("change", (event) => handleStampUpload(event.target.files[0]));
+    byId("showStamp").addEventListener("change", () => {
+      updateStampView();
+      saveDraft();
+    });
     byId("saveRecordBtn").addEventListener("click", saveRecord);
     byId("loadRecordBtn").addEventListener("click", loadSelectedRecord);
     byId("exportHistoryBtn").addEventListener("click", exportHistory);
@@ -997,6 +1092,7 @@
 
     refreshHistorySelect();
     loadDraft();
+    updateStampView();
     render();
   </script>
 </body>
