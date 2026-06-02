@@ -594,19 +594,19 @@
 
       <fieldset class="flow-time">
         <legend>3. 時間設定</legend>
-        <p class="section-note">設定每位考生的流程間隔與各階段起訖時間。</p>
+        <p class="section-note">依流程順序填入「與前一階段相隔幾分鐘」，不用換算成報到後的總分鐘數。</p>
         <div class="grid">
-          <label>引導抽題：報到後幾分鐘
-            <input id="guideOffset" type="number" value="8">
+          <label>報到後幾分鐘進行引導抽題
+            <input id="guideOffset" type="number" min="0" value="8">
           </label>
-          <label>實作抽題準備：報到後幾分鐘開始
-            <input id="prepOffset" type="number" value="9">
+          <label>引導抽題後幾分鐘開始實作抽題準備
+            <input id="prepOffset" type="number" min="0" value="1">
           </label>
           <label>實作抽題準備長度（分鐘）
             <input id="prepDuration" type="number" min="1" value="10">
           </label>
-          <label>實作：報到後幾分鐘開始
-            <input id="practiceOffset" type="number" value="20">
+          <label>實作抽題準備結束後幾分鐘開始實作
+            <input id="practiceOffset" type="number" min="0" value="1">
           </label>
           <label>實作長度（分鐘）
             <input id="practiceDuration" type="number" min="1" value="12">
@@ -614,11 +614,11 @@
           <label>實作提醒：結束前幾分鐘
             <input id="practiceReminderBeforeEnd" type="number" min="0" value="2">
           </label>
-          <label>口試預備教室：報到後幾分鐘
-            <input id="oralReadyOffset" type="number" value="35">
+          <label>實作結束後幾分鐘到口試預備教室
+            <input id="oralReadyOffset" type="number" min="0" value="3">
           </label>
-          <label>口試：報到後幾分鐘開始
-            <input id="oralOffset" type="number" value="43">
+          <label>口試預備後幾分鐘開始口試
+            <input id="oralOffset" type="number" min="0" value="8">
           </label>
           <label>口試長度（分鐘）
             <input id="oralDuration" type="number" min="1" value="2">
@@ -778,12 +778,37 @@
     function fieldData() {
       return {
         ...Object.fromEntries(fields.map((id) => [id, byId(id).value])),
+        timeInputMode: "previous-stage",
         showStamp: byId("showStamp").checked,
         stampData: byId("stampData").value
       };
     }
 
+    function migrateTimeFields(data) {
+      if (!data || data.timeInputMode === "previous-stage") return data || {};
+      const migrated = { ...data };
+      const valueOf = (id) => Number(migrated[id]);
+      const guide = valueOf("guideOffset");
+      const prep = valueOf("prepOffset");
+      const prepDuration = valueOf("prepDuration");
+      const practice = valueOf("practiceOffset");
+      const practiceDuration = valueOf("practiceDuration");
+      const oralReady = valueOf("oralReadyOffset");
+      const oral = valueOf("oralOffset");
+      const canMigrate = [guide, prep, prepDuration, practice, practiceDuration, oralReady, oral]
+        .every((value) => Number.isFinite(value));
+      if (canMigrate) {
+        migrated.prepOffset = String(Math.max(0, prep - guide));
+        migrated.practiceOffset = String(Math.max(0, practice - (prep + prepDuration)));
+        migrated.oralReadyOffset = String(Math.max(0, oralReady - (practice + practiceDuration)));
+        migrated.oralOffset = String(Math.max(0, oral - oralReady));
+      }
+      migrated.timeInputMode = "previous-stage";
+      return migrated;
+    }
+
     function applyFieldData(data) {
+      data = migrateTimeFields(data);
       fields.forEach((id) => {
         if (Object.prototype.hasOwnProperty.call(data, id)) {
           byId(id).value = data[id];
@@ -982,8 +1007,14 @@
       const errors = [];
       if (config.startTime === null) errors.push("請設定第一位報到時間。");
       if (config.candidateGap <= 0) errors.push("考生間隔需大於 0 分鐘。");
+      if (config.guideOffset < 0) errors.push("報到到引導抽題的間隔不可小於 0 分鐘。");
+      if (config.prepOffset < 0) errors.push("引導抽題到實作抽題準備的間隔不可小於 0 分鐘。");
       if (config.prepDuration <= 0) errors.push("實作抽題準備長度需大於 0 分鐘。");
+      if (config.practiceOffset < 0) errors.push("實作抽題準備結束到實作開始的間隔不可小於 0 分鐘。");
       if (config.practiceDuration <= 0) errors.push("實作長度需大於 0 分鐘。");
+      if (config.practiceReminderBeforeEnd < 0) errors.push("實作提醒時間不可小於 0 分鐘。");
+      if (config.oralReadyOffset < 0) errors.push("實作結束到口試預備教室的間隔不可小於 0 分鐘。");
+      if (config.oralOffset < 0) errors.push("口試預備到口試開始的間隔不可小於 0 分鐘。");
       if (config.oralDuration <= 0) errors.push("口試長度需大於 0 分鐘。");
       if (!config.tickets.length) errors.push("請至少輸入一筆准考證號碼。");
       return errors;
@@ -1029,10 +1060,13 @@
         }
 
         const checkin = config.startTime + (index * config.candidateGap) + breakMinutes;
-        const prepStart = checkin + config.prepOffset;
-        const practiceStart = checkin + config.practiceOffset;
+        const guide = checkin + config.guideOffset;
+        const prepStart = guide + config.prepOffset;
+        const prepEnd = prepStart + config.prepDuration;
+        const practiceStart = prepEnd + config.practiceOffset;
         const practiceEnd = practiceStart + config.practiceDuration;
-        const oralStart = checkin + config.oralOffset;
+        const oralReady = practiceEnd + config.oralReadyOffset;
+        const oralStart = oralReady + config.oralOffset;
         const oralEnd = oralStart + config.oralDuration;
 
         if (rule && previousCandidate) {
@@ -1040,7 +1074,7 @@
             type: "break",
             prepText: `${previousCandidate.prepEnd} - ${formatTime(prepStart)}${rule.label}`,
             practiceText: `${previousCandidate.practiceEnd} - ${formatTime(practiceStart)}${rule.label}`,
-            oralText: `${previousCandidate.oralEnd} - ${formatTime(checkin + config.oralReadyOffset)}${rule.label}`
+            oralText: `${previousCandidate.oralEnd} - ${formatTime(oralReady)}${rule.label}`
           });
         }
 
@@ -1049,13 +1083,13 @@
           number: index + 1,
           ticket,
           checkin: formatTime(checkin),
-          guide: formatTime(checkin + config.guideOffset),
+          guide: formatTime(guide),
           prepStart: formatTime(prepStart),
-          prepEnd: formatTime(prepStart + config.prepDuration),
+          prepEnd: formatTime(prepEnd),
           practiceStart: formatTime(practiceStart),
           practiceReminder: `${formatTime(practiceEnd - config.practiceReminderBeforeEnd)}提醒`,
           practiceEnd: formatTime(practiceEnd),
-          oralReady: formatTime(checkin + config.oralReadyOffset),
+          oralReady: formatTime(oralReady),
           oralStart: formatTime(oralStart),
           oralEnd: formatTime(oralEnd)
         };
@@ -1151,13 +1185,13 @@
       byId("startTime").value = "08:00";
       byId("candidateGap").value = "15";
       byId("guideOffset").value = "8";
-      byId("prepOffset").value = "9";
+      byId("prepOffset").value = "1";
       byId("prepDuration").value = "10";
-      byId("practiceOffset").value = "20";
+      byId("practiceOffset").value = "1";
       byId("practiceDuration").value = "12";
       byId("practiceReminderBeforeEnd").value = "2";
-      byId("oralReadyOffset").value = "35";
-      byId("oralOffset").value = "43";
+      byId("oralReadyOffset").value = "3";
+      byId("oralOffset").value = "8";
       byId("oralDuration").value = "2";
       byId("breakRules").value = "7:15:休息\n14:55:休息\n21:15:休息";
       byId("tickets").value = sampleTickets;
