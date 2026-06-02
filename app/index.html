@@ -15,6 +15,8 @@
       --blue: #205493;
       --panel: #ffffff;
       --page: #f4f7fb;
+      --step-color: #205493;
+      --step-bg: #f5f8fb;
     }
 
     * {
@@ -74,10 +76,15 @@
     }
 
     fieldset {
+      position: relative;
       margin: 0 0 16px;
       padding: 14px;
-      border: 1px solid #dbe3ed;
+      border: 1px solid color-mix(in srgb, var(--step-color) 22%, #dbe3ed);
       border-radius: 8px;
+      background:
+        linear-gradient(90deg, var(--step-color) 0 5px, transparent 5px),
+        linear-gradient(180deg, var(--step-bg), #fff 120px);
+      box-shadow: 0 5px 16px rgba(31, 42, 58, 0.04);
     }
 
     .flow-start { order: 1; }
@@ -90,15 +97,60 @@
     .flow-stamp { order: 8; }
     .flow-output { order: 9; }
 
+    .flow-start {
+      --step-color: #3f6f8f;
+      --step-bg: #eef6fb;
+    }
+
+    .flow-basic {
+      --step-color: #2f7d5c;
+      --step-bg: #eef8f3;
+    }
+
+    .flow-tickets {
+      --step-color: #b7791f;
+      --step-bg: #fff7e8;
+    }
+
+    .flow-time {
+      --step-color: #8b4fb3;
+      --step-bg: #f7f0fb;
+    }
+
+    .flow-break {
+      --step-color: #be5b3b;
+      --step-bg: #fff2ed;
+    }
+
+    .flow-room {
+      --step-color: #236d7a;
+      --step-bg: #eef8fa;
+    }
+
+    .flow-notes {
+      --step-color: #667085;
+      --step-bg: #f4f6f8;
+    }
+
+    .flow-stamp {
+      --step-color: #b5162e;
+      --step-bg: #fff1f3;
+    }
+
+    .flow-output {
+      --step-color: #205493;
+    }
+
     legend {
       padding: 0 6px;
       font-weight: 700;
-      color: var(--blue);
+      color: var(--step-color);
+      background: linear-gradient(180deg, #fff 0 58%, transparent 58%);
     }
 
     .section-note {
       margin: -4px 0 12px;
-      color: var(--muted);
+      color: color-mix(in srgb, var(--step-color) 50%, var(--muted));
       font-size: 12px;
     }
 
@@ -214,8 +266,9 @@
       gap: 8px;
       margin-bottom: 12px;
       padding: 10px 12px;
-      border-left: 3px solid var(--blue);
-      background: #f5f8fb;
+      border-left: 3px solid var(--step-color);
+      background: rgba(255, 255, 255, 0.68);
+      border-radius: 0 6px 6px 0;
     }
 
     .step-tool p {
@@ -242,6 +295,11 @@
       padding: 12px 18px 18px;
       background: linear-gradient(180deg, rgba(255,255,255,0.86), #fff 28%);
       border-top: 1px solid #e0e7ef;
+    }
+
+    .actions.flow-output {
+      border-top: 3px solid var(--step-color);
+      background: linear-gradient(180deg, rgba(238,243,248,0.88), #fff 32%);
     }
 
     button {
