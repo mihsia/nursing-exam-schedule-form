@@ -54,6 +54,8 @@
 
     .controls {
       align-self: start;
+      display: flex;
+      flex-direction: column;
       max-height: calc(100vh - 32px);
       overflow: auto;
       padding: 18px;
@@ -78,10 +80,26 @@
       border-radius: 8px;
     }
 
+    .flow-start { order: 1; }
+    .flow-basic { order: 2; }
+    .flow-tickets { order: 3; }
+    .flow-time { order: 4; }
+    .flow-break { order: 5; }
+    .flow-room { order: 6; }
+    .flow-notes { order: 7; }
+    .flow-stamp { order: 8; }
+    .flow-output { order: 9; }
+
     legend {
       padding: 0 6px;
       font-weight: 700;
       color: var(--blue);
+    }
+
+    .section-note {
+      margin: -4px 0 12px;
+      color: var(--muted);
+      font-size: 12px;
     }
 
     .grid {
@@ -414,8 +432,9 @@
 
       <div class="error" id="errorBox"></div>
 
-      <fieldset>
-        <legend>資料庫與歷史檔</legend>
+      <fieldset class="flow-start">
+        <legend>快速開始與保存</legend>
+        <p class="section-note">第一次可直接往下填；之後可從歷史紀錄載入，完成後再儲存設定。</p>
         <div class="grid">
           <label class="full">儲存名稱
             <input id="recordName" placeholder="例如：115年 A組複試時間">
@@ -436,8 +455,9 @@
         <div class="status" id="dbStatus"></div>
       </fieldset>
 
-      <fieldset>
-        <legend>基本資料</legend>
+      <fieldset class="flow-basic">
+        <legend>1. 基本資料</legend>
+        <p class="section-note">先設定報表標題、日期、組別與第一位報到時間。</p>
         <div class="grid">
           <label class="full">標題
             <input id="title" value="宜蘭縣112學年度學校新進護理師聯合甄選複試時間分配表">
@@ -457,8 +477,9 @@
         </div>
       </fieldset>
 
-      <fieldset>
-        <legend>欄位地點</legend>
+      <fieldset class="flow-room">
+        <legend>5. 欄位地點</legend>
+        <p class="section-note">填入報到、實作與口試地點，會同步到報表欄位。</p>
         <div class="grid">
           <label>報到地點
             <input id="checkinRoom" value="813教室">
@@ -478,8 +499,9 @@
         </div>
       </fieldset>
 
-      <fieldset>
-        <legend>報表戳章</legend>
+      <fieldset class="flow-stamp">
+        <legend>7. 報表戳章</legend>
+        <p class="section-note">最後決定是否顯示戳章；上傳後會跟著儲存設定保存。</p>
         <div class="grid">
           <label class="full">上傳甄選圓戳章
             <input id="stampUpload" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
@@ -497,8 +519,9 @@
         </div>
       </fieldset>
 
-      <fieldset>
-        <legend>時間設定</legend>
+      <fieldset class="flow-time">
+        <legend>3. 時間設定</legend>
+        <p class="section-note">設定每位考生的流程間隔與各階段起訖時間。</p>
         <div class="grid">
           <label>引導抽題：報到後幾分鐘
             <input id="guideOffset" type="number" value="8">
@@ -530,8 +553,9 @@
         </div>
       </fieldset>
 
-      <fieldset>
-        <legend>休息時間</legend>
+      <fieldset class="flow-break">
+        <legend>4. 休息時間</legend>
+        <p class="section-note">需要中場或午休時再設定；不需要可留空。</p>
         <div class="grid">
           <label class="full">休息規則
             <textarea id="breakRules">7:15:休息
@@ -542,8 +566,9 @@
         </div>
       </fieldset>
 
-      <fieldset>
-        <legend>准考證號碼</legend>
+      <fieldset class="flow-tickets">
+        <legend>2. 准考證號碼</legend>
+        <p class="section-note">貼上本組考生名單，右側會立即更新報表。</p>
         <label>一行一筆，或以逗號、空白分隔
           <textarea id="tickets">01120019
 01120026
@@ -572,15 +597,16 @@
         </label>
       </fieldset>
 
-      <fieldset>
-        <legend>頁尾備註</legend>
+      <fieldset class="flow-notes">
+        <legend>6. 頁尾備註</legend>
+        <p class="section-note">補充試務中心、流程或其他公告文字。</p>
         <label>備註
           <textarea id="notes">※試務中心：羅東國中--明德樓(3樓)816教室
 ※複試流程：報到==>實作抽題準備==>實作==>口試</textarea>
         </label>
       </fieldset>
 
-      <div class="actions">
+      <div class="actions flow-output" aria-label="輸出操作">
         <button class="primary" id="printBtn" type="button">列印 / 另存 PDF</button>
         <button id="csvBtn" type="button">匯出 CSV</button>
         <button id="sampleBtn" type="button">載入附件範例</button>
