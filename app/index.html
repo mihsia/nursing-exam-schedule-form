@@ -103,6 +103,7 @@
     }
 
     input,
+    select,
     textarea {
       width: 100%;
       border: 1px solid #c9d3df;
@@ -124,6 +125,47 @@
       color: var(--muted);
       font-size: 12px;
       font-weight: 400;
+    }
+
+    .tool-head {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #e3e9f1;
+    }
+
+    .tool-head h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    .tool-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .nav-link {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      min-height: 32px;
+      border: 1px solid #bfd0e3;
+      border-radius: 6px;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 800;
+      padding: 5px 9px;
+      text-decoration: none;
+    }
+
+    .status {
+      min-height: 18px;
+      color: var(--green, #0f766e);
+      font-size: 12px;
+      font-weight: 700;
     }
 
     .actions {
@@ -153,6 +195,16 @@
       border-color: var(--blue);
       background: var(--blue);
       color: #fff;
+    }
+
+    button.secondary {
+      border-color: #0f766e;
+      background: #0f766e;
+      color: #fff;
+    }
+
+    button.ghost {
+      background: #f7fafc;
     }
 
     .preview-wrap {
@@ -324,11 +376,35 @@
 <body>
   <main class="shell">
     <section class="controls" aria-label="時間分配表設定">
-      <h1>複試時間分配表產生器</h1>
-      <p>輸入准考證號碼、開始時間與各階段設定，右側會即時產生可列印的網公告版表格。</p>
-      <p><a href="grouping.html">前往成績 S 型分組工具</a></p>
+      <header class="tool-head">
+        <h1>複試時間分配表產生器</h1>
+        <p>輸入准考證號碼、開始時間與各階段設定，右側會即時產生可列印的網公告版表格。</p>
+        <a class="nav-link" href="grouping.html">前往成績 S 型分組工具</a>
+      </header>
 
       <div class="error" id="errorBox"></div>
+
+      <fieldset>
+        <legend>資料庫與歷史檔</legend>
+        <div class="grid">
+          <label class="full">儲存名稱
+            <input id="recordName" placeholder="例如：115年 A組複試時間">
+          </label>
+          <label class="full">載入已儲存設定
+            <select id="historySelect">
+              <option value="">尚無儲存紀錄</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions" style="position: static; margin: 10px 0 0; padding: 0; border: 0; background: transparent;">
+          <button class="secondary" id="saveRecordBtn" type="button">儲存設定</button>
+          <button id="loadRecordBtn" type="button">載入設定</button>
+          <button class="ghost" id="exportHistoryBtn" type="button">匯出歷史檔</button>
+          <button class="ghost" id="importHistoryBtn" type="button">匯入歷史檔</button>
+          <input id="historyFileInput" type="file" accept="application/json,.json" hidden>
+        </div>
+        <div class="status" id="dbStatus"></div>
+      </fieldset>
 
       <fieldset>
         <legend>基本資料</legend>
@@ -537,10 +613,143 @@
 01120192`;
 
     const byId = (id) => document.getElementById(id);
+    const historyKey = "nursingExamScheduleHistoryV1";
+    const draftKey = "nursingExamScheduleDraftV1";
 
     function numberValue(id) {
       const value = Number(byId(id).value);
       return Number.isFinite(value) ? value : 0;
+    }
+
+    function fieldData() {
+      return Object.fromEntries(fields.map((id) => [id, byId(id).value]));
+    }
+
+    function applyFieldData(data) {
+      fields.forEach((id) => {
+        if (Object.prototype.hasOwnProperty.call(data, id)) {
+          byId(id).value = data[id];
+        }
+      });
+      render();
+    }
+
+    function readHistory() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(historyKey) || "{}");
+        return { records: Array.isArray(parsed.records) ? parsed.records : [] };
+      } catch {
+        return { records: [] };
+      }
+    }
+
+    function writeHistory(history) {
+      localStorage.setItem(historyKey, JSON.stringify({
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        records: history.records.slice(0, 80)
+      }));
+      refreshHistorySelect();
+    }
+
+    function setDbStatus(message) {
+      byId("dbStatus").textContent = message;
+    }
+
+    function defaultRecordName() {
+      const date = byId("dateText").value.trim().replace(/\s+/g, "");
+      const group = byId("groupText").value.trim() || "未分組";
+      return `${date || "未命名"}_${group}`;
+    }
+
+    function refreshHistorySelect() {
+      const select = byId("historySelect");
+      const history = readHistory();
+      select.innerHTML = history.records.length
+        ? history.records.map((record) => `<option value="${escapeHtml(record.id)}">${escapeHtml(record.name)}（${escapeHtml(record.savedAtText)}）</option>`).join("")
+        : '<option value="">尚無儲存紀錄</option>';
+    }
+
+    function saveDraft() {
+      localStorage.setItem(draftKey, JSON.stringify({
+        savedAt: new Date().toISOString(),
+        data: fieldData()
+      }));
+    }
+
+    function loadDraft() {
+      try {
+        const draft = JSON.parse(localStorage.getItem(draftKey) || "null");
+        if (draft?.data) applyFieldData(draft.data);
+      } catch {
+        render();
+      }
+    }
+
+    function saveRecord() {
+      const now = new Date();
+      const name = byId("recordName").value.trim() || defaultRecordName();
+      const history = readHistory();
+      const record = {
+        id: `schedule-${Date.now()}`,
+        type: "schedule",
+        name,
+        savedAt: now.toISOString(),
+        savedAtText: now.toLocaleString("zh-TW"),
+        data: fieldData()
+      };
+      history.records = [record, ...history.records.filter((item) => item.name !== name)];
+      writeHistory(history);
+      byId("historySelect").value = record.id;
+      setDbStatus(`已儲存：${name}`);
+    }
+
+    function loadSelectedRecord() {
+      const selectedId = byId("historySelect").value;
+      const record = readHistory().records.find((item) => item.id === selectedId);
+      if (!record) {
+        setDbStatus("請先選擇要載入的紀錄。");
+        return;
+      }
+      applyFieldData(record.data || {});
+      byId("recordName").value = record.name || "";
+      saveDraft();
+      setDbStatus(`已載入：${record.name}`);
+    }
+
+    function exportHistory() {
+      const payload = {
+        app: "nursing-exam-schedule-form",
+        kind: "schedule-history",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        records: readHistory().records
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `複試時間分配表歷史檔_${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setDbStatus("已匯出歷史檔。");
+    }
+
+    async function importHistory(file) {
+      if (!file) return;
+      try {
+        const payload = JSON.parse(await file.text());
+        const incoming = Array.isArray(payload.records) ? payload.records : [];
+        const history = readHistory();
+        const byIdMap = new Map([...incoming, ...history.records].map((record) => [record.id || `import-${Math.random()}`, record]));
+        history.records = Array.from(byIdMap.values()).filter((record) => record?.data);
+        writeHistory(history);
+        setDbStatus(`已匯入 ${incoming.length} 筆歷史紀錄。`);
+      } catch {
+        setDbStatus("匯入失敗，請確認是本工具匯出的 JSON 歷史檔。");
+      } finally {
+        byId("historyFileInput").value = "";
+      }
     }
 
     function parseTime(value) {
@@ -763,10 +972,15 @@
       byId("breakRules").value = "7:15:休息\n14:55:休息\n21:15:休息";
       byId("tickets").value = sampleTickets;
       render();
+      saveDraft();
+      setDbStatus("已載入附件範例。");
     }
 
     fields.forEach((id) => {
-      byId(id).addEventListener("input", render);
+      byId(id).addEventListener("input", () => {
+        render();
+        saveDraft();
+      });
     });
 
     byId("printBtn").addEventListener("click", () => {
@@ -775,7 +989,14 @@
     });
     byId("csvBtn").addEventListener("click", exportCsv);
     byId("sampleBtn").addEventListener("click", loadSample);
+    byId("saveRecordBtn").addEventListener("click", saveRecord);
+    byId("loadRecordBtn").addEventListener("click", loadSelectedRecord);
+    byId("exportHistoryBtn").addEventListener("click", exportHistory);
+    byId("importHistoryBtn").addEventListener("click", () => byId("historyFileInput").click());
+    byId("historyFileInput").addEventListener("change", (event) => importHistory(event.target.files[0]));
 
+    refreshHistorySelect();
+    loadDraft();
     render();
   </script>
 </body>

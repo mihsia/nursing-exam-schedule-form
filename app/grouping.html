@@ -53,6 +53,8 @@
 
     .controls {
       align-self: start;
+      max-height: calc(100vh - 32px);
+      overflow: auto;
       padding: 18px;
     }
 
@@ -121,6 +123,40 @@
       font-weight: 400;
     }
 
+    .tool-head {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #e3e9f1;
+    }
+
+    .tool-head h1,
+    .tool-head p {
+      margin: 0;
+    }
+
+    .nav-link {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      min-height: 32px;
+      border: 1px solid #bfd0e3;
+      border-radius: 6px;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 800;
+      padding: 5px 9px;
+      text-decoration: none;
+    }
+
+    .status {
+      min-height: 18px;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
     .actions {
       display: flex;
       flex-wrap: wrap;
@@ -149,6 +185,10 @@
       border-color: var(--green);
       background: var(--green);
       color: #fff;
+    }
+
+    button.ghost {
+      background: #f7fafc;
     }
 
     button:disabled {
@@ -255,11 +295,35 @@
 <body>
   <main class="shell">
     <section class="controls panel">
-      <a class="back" href="index.html">返回複試時間分配表</a>
-      <h1>成績 S 型分組</h1>
-      <p>匯入成績檔，依「成績」由高到低排序，再用蛇形方式分配到 A-Z 組，最後匯出分組名冊。</p>
+      <header class="tool-head">
+        <a class="nav-link" href="index.html">返回複試時間分配表</a>
+        <h1>成績 S 型分組</h1>
+        <p>匯入成績檔，依「成績」由高到低排序，再用蛇形方式分配到 A-Z 組，最後匯出分組名冊。</p>
+      </header>
 
       <div class="error" id="errorBox"></div>
+
+      <fieldset>
+        <legend>資料庫與歷史檔</legend>
+        <div class="grid">
+          <label>儲存名稱
+            <input id="recordName" placeholder="例如：115年複試分組">
+          </label>
+          <label>載入已儲存設定
+            <select id="historySelect">
+              <option value="">尚無儲存紀錄</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions">
+          <button class="success" id="saveRecordBtn" type="button">儲存設定</button>
+          <button id="loadRecordBtn" type="button">載入設定</button>
+          <button class="ghost" id="exportHistoryBtn" type="button">匯出歷史檔</button>
+          <button class="ghost" id="importHistoryBtn" type="button">匯入歷史檔</button>
+          <input id="historyFileInput" type="file" accept="application/json,.json" hidden>
+        </div>
+        <div class="status" id="dbStatus"></div>
+      </fieldset>
 
       <fieldset>
         <legend>資料來源</legend>
@@ -342,8 +406,144 @@
 
   <script>
     const byId = (id) => document.getElementById(id);
+    const historyKey = "nursingExamGroupingHistoryV1";
+    const draftKey = "nursingExamGroupingDraftV1";
     let importedRows = [];
     let assignedRows = [];
+
+    function settingData() {
+      return {
+        pasteData: byId("pasteData").value,
+        groupCount: byId("groupCount").value,
+        finalistCount: byId("finalistCount").value,
+        labelMode: byId("labelMode").value
+      };
+    }
+
+    function applySettingData(data) {
+      if (!data) return;
+      ["pasteData", "groupCount", "finalistCount", "labelMode"].forEach((id) => {
+        if (Object.prototype.hasOwnProperty.call(data, id)) byId(id).value = data[id];
+      });
+      importedRows = [];
+      assignedRows = [];
+      renderResults([]);
+    }
+
+    function readHistory() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(historyKey) || "{}");
+        return { records: Array.isArray(parsed.records) ? parsed.records : [] };
+      } catch {
+        return { records: [] };
+      }
+    }
+
+    function writeHistory(history) {
+      localStorage.setItem(historyKey, JSON.stringify({
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        records: history.records.slice(0, 80)
+      }));
+      refreshHistorySelect();
+    }
+
+    function setDbStatus(message) {
+      byId("dbStatus").textContent = message;
+    }
+
+    function refreshHistorySelect() {
+      const history = readHistory();
+      byId("historySelect").innerHTML = history.records.length
+        ? history.records.map((record) => `<option value="${escapeHtml(record.id)}">${escapeHtml(record.name)}（${escapeHtml(record.savedAtText)}）</option>`).join("")
+        : '<option value="">尚無儲存紀錄</option>';
+    }
+
+    function saveDraft() {
+      localStorage.setItem(draftKey, JSON.stringify({
+        savedAt: new Date().toISOString(),
+        data: settingData()
+      }));
+    }
+
+    function loadDraft() {
+      try {
+        const draft = JSON.parse(localStorage.getItem(draftKey) || "null");
+        if (draft?.data) applySettingData(draft.data);
+      } catch {
+        renderResults([]);
+      }
+    }
+
+    function defaultRecordName() {
+      return `S型分組_${new Date().toLocaleDateString("zh-TW")}`;
+    }
+
+    function saveRecord() {
+      const now = new Date();
+      const name = byId("recordName").value.trim() || defaultRecordName();
+      const history = readHistory();
+      const record = {
+        id: `grouping-${Date.now()}`,
+        type: "grouping",
+        name,
+        savedAt: now.toISOString(),
+        savedAtText: now.toLocaleString("zh-TW"),
+        data: settingData()
+      };
+      history.records = [record, ...history.records.filter((item) => item.name !== name)];
+      writeHistory(history);
+      byId("historySelect").value = record.id;
+      setDbStatus(`已儲存：${name}`);
+    }
+
+    function loadSelectedRecord() {
+      const selectedId = byId("historySelect").value;
+      const record = readHistory().records.find((item) => item.id === selectedId);
+      if (!record) {
+        setDbStatus("請先選擇要載入的紀錄。");
+        return;
+      }
+      applySettingData(record.data);
+      byId("recordName").value = record.name || "";
+      saveDraft();
+      setDbStatus(`已載入：${record.name}`);
+    }
+
+    function exportHistory() {
+      const payload = {
+        app: "nursing-exam-schedule-form",
+        kind: "grouping-history",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        records: readHistory().records
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `成績S型分組歷史檔_${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setDbStatus("已匯出歷史檔。");
+    }
+
+    async function importHistory(file) {
+      if (!file) return;
+      try {
+        const payload = JSON.parse(await file.text());
+        const incoming = Array.isArray(payload.records) ? payload.records : [];
+        const history = readHistory();
+        const byIdMap = new Map([...incoming, ...history.records].map((record) => [record.id || `import-${Math.random()}`, record]));
+        history.records = Array.from(byIdMap.values()).filter((record) => record?.data);
+        writeHistory(history);
+        setDbStatus(`已匯入 ${incoming.length} 筆歷史紀錄。`);
+      } catch {
+        setDbStatus("匯入失敗，請確認是本工具匯出的 JSON 歷史檔。");
+      } finally {
+        byId("historyFileInput").value = "";
+      }
+    }
 
     function showError(message) {
       const box = byId("errorBox");
@@ -639,6 +839,7 @@
         importedRows = await loadRowsFromInput();
         if (!importedRows.length) throw new Error("沒有可分組的有效考生資料。");
         refreshGrouping();
+        saveDraft();
       } catch (error) {
         renderResults([]);
         showError(error.message || String(error));
@@ -679,15 +880,26 @@
     byId("runBtn").addEventListener("click", runGrouping);
     byId("exportBtn").addEventListener("click", () => exportCsv(false));
     byId("exportFullBtn").addEventListener("click", () => exportCsv(true));
+    byId("pasteData").addEventListener("input", saveDraft);
     byId("groupCount").addEventListener("input", () => {
+      saveDraft();
       if (importedRows.length) refreshGrouping();
     });
     byId("finalistCount").addEventListener("input", () => {
+      saveDraft();
       if (importedRows.length) refreshGrouping();
     });
     byId("labelMode").addEventListener("change", () => {
+      saveDraft();
       if (importedRows.length) refreshGrouping();
     });
+    byId("saveRecordBtn").addEventListener("click", saveRecord);
+    byId("loadRecordBtn").addEventListener("click", loadSelectedRecord);
+    byId("exportHistoryBtn").addEventListener("click", exportHistory);
+    byId("importHistoryBtn").addEventListener("click", () => byId("historyFileInput").click());
+    byId("historyFileInput").addEventListener("change", (event) => importHistory(event.target.files[0]));
+    refreshHistorySelect();
+    loadDraft();
   </script>
 </body>
 </html>
