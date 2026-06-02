@@ -209,6 +209,22 @@
       text-decoration: none;
     }
 
+    .step-tool {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      border-left: 3px solid var(--blue);
+      background: #f5f8fb;
+    }
+
+    .step-tool p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
     .status {
       min-height: 18px;
       color: var(--green, #0f766e);
@@ -427,7 +443,6 @@
       <header class="tool-head">
         <h1>複試時間分配表產生器</h1>
         <p>輸入准考證號碼、開始時間與各階段設定，右側會即時產生可列印的網公告版表格。</p>
-        <a class="nav-link" href="grouping.html">前往成績 S 型分組工具</a>
       </header>
 
       <div class="error" id="errorBox"></div>
@@ -569,6 +584,10 @@
       <fieldset class="flow-tickets">
         <legend>2. 准考證號碼</legend>
         <p class="section-note">貼上本組考生名單，右側會立即更新報表。</p>
+        <div class="step-tool">
+          <p>尚未完成複試分組名冊時，可先用成績 S 型分組產生組別與准考證資料，再回到這裡貼入本組名單。</p>
+          <a class="nav-link" href="grouping.html">開啟成績 S 型分組</a>
+        </div>
         <label>一行一筆，或以逗號、空白分隔
           <textarea id="tickets">01120019
 01120026
