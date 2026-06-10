@@ -637,7 +637,7 @@
             <textarea id="breakRules">7:15:休息
 14:55:休息
 21:15:休息</textarea>
-            <span class="hint">格式：第幾位後:休息分鐘:文字。下一位會自動順延到休息結束 1 分鐘後，例如 14:55:午休。</span>
+            <span class="hint">格式：第幾位後:休息分鐘:文字。休息從上一位同階段結束後 1 分鐘開始，並在下一位同階段開始前 1 分鐘結束。</span>
           </label>
         </div>
       </fieldset>
@@ -1057,30 +1057,37 @@
       let previousCandidate = null;
       let nextCheckin = config.startTime;
       const breakBufferMinutes = 1;
+      const breakInclusiveEndMinutes = 1;
       const breaksByAfter = new Map(config.breakRules.map((rule) => [rule.after, rule]));
 
       config.tickets.forEach((ticket, index) => {
         const rule = breaksByAfter.get(index);
-        const prepBreakEnd = rule && previousCandidate ? previousCandidate.prepEndMinutes + rule.minutes : null;
-        const practiceBreakEnd = rule && previousCandidate ? previousCandidate.practiceEndMinutes + rule.minutes : null;
-        const oralBreakEnd = rule && previousCandidate ? previousCandidate.oralEndMinutes + rule.minutes : null;
+        const minNextStageStart = (previousEnd) => {
+          if (!rule || !previousCandidate) return -Infinity;
+          return previousEnd + breakBufferMinutes + rule.minutes + breakInclusiveEndMinutes + breakBufferMinutes;
+        };
         const scheduledCheckin = nextCheckin + (rule ? rule.minutes : 0);
-        const checkin = prepBreakEnd === null ? scheduledCheckin : Math.max(scheduledCheckin, prepBreakEnd + breakBufferMinutes);
+        const minimumCheckin = rule && previousCandidate
+          ? minNextStageStart(previousCandidate.prepEndMinutes) - config.guideOffset - config.prepOffset
+          : -Infinity;
+        const checkin = Math.max(scheduledCheckin, minimumCheckin);
         const guide = checkin + config.guideOffset;
         const prepStart = guide + config.prepOffset;
         const prepEnd = prepStart + config.prepDuration;
-        const practiceStart = Math.max(prepEnd + config.practiceOffset, practiceBreakEnd === null ? -Infinity : practiceBreakEnd + breakBufferMinutes);
+        const practiceStart = Math.max(prepEnd + config.practiceOffset, minNextStageStart(previousCandidate?.practiceEndMinutes));
         const practiceEnd = practiceStart + config.practiceDuration;
         const oralReady = practiceEnd + config.oralReadyOffset;
-        const oralStart = Math.max(oralReady + config.oralOffset, oralBreakEnd === null ? -Infinity : oralBreakEnd + breakBufferMinutes);
+        const oralStart = Math.max(oralReady + config.oralOffset, minNextStageStart(previousCandidate?.oralEndMinutes));
         const oralEnd = oralStart + config.oralDuration;
 
         if (rule && previousCandidate) {
+          const breakText = (previousEnd, nextStart) =>
+            `${formatTime(previousEnd + breakBufferMinutes)} - ${formatTime(nextStart - breakBufferMinutes)}${rule.label}`;
           rows.push({
             type: "break",
-            prepText: `${previousCandidate.prepEnd} - ${formatTime(prepBreakEnd)}${rule.label}`,
-            practiceText: `${previousCandidate.practiceEnd} - ${formatTime(practiceBreakEnd)}${rule.label}`,
-            oralText: `${previousCandidate.oralEnd} - ${formatTime(oralBreakEnd)}${rule.label}`
+            prepText: breakText(previousCandidate.prepEndMinutes, prepStart),
+            practiceText: breakText(previousCandidate.practiceEndMinutes, practiceStart),
+            oralText: breakText(previousCandidate.oralEndMinutes, oralStart)
           });
         }
 
