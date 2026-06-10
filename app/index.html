@@ -699,6 +699,7 @@
 
       <div class="actions flow-output" aria-label="輸出操作">
         <button class="primary" id="printBtn" type="button">列印 / 另存 PDF</button>
+        <button id="wordBtn" type="button">匯出 Word</button>
         <button id="csvBtn" type="button">匯出 CSV</button>
         <button id="sampleBtn" type="button">載入附件範例</button>
       </div>
@@ -1218,6 +1219,49 @@
       URL.revokeObjectURL(url);
     }
 
+    function exportWord() {
+      render();
+      const sheet = byId("sheet").cloneNode(true);
+      const title = byId("title").value.trim() || "護理師甄選複試時間分配表";
+      const group = byId("groupText").value.trim() || "未分組";
+      const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    @page { size: A4 portrait; margin: 8mm; }
+    body { margin: 0; color: #000; font-family: "Times New Roman", "PMingLiU", "Noto Serif TC", serif; }
+    .sheet { width: 18.4cm; margin: 0 auto; padding: 0; background: #fff; color: #000; font-family: "Times New Roman", "PMingLiU", "Noto Serif TC", serif; }
+    .doc-title { margin: 0; text-align: center; font-size: 19px; font-weight: 700; letter-spacing: 0; }
+    .doc-meta { display: flex; align-items: flex-end; justify-content: space-between; margin: 6px 0 8px; font-size: 13px; font-weight: 700; }
+    .doc-meta-side { width: 32%; }
+    .doc-group { flex: 1; text-align: center; color: #b5162e; font-size: 16px; }
+    .doc-location { text-align: right; }
+    .schedule { width: 100%; border-collapse: collapse; table-layout: fixed; border: 2px solid #1f2a3a; font-size: 12px; }
+    .schedule th, .schedule td { border: 1px solid #1f2a3a; padding: 4px 3px; text-align: center; vertical-align: middle; white-space: nowrap; }
+    .schedule th { background: #eef1f6; font-weight: 700; }
+    .schedule .sub { display: block; color: #d9233f; font-size: 10px; line-height: 1.2; white-space: normal; }
+    .schedule .number { width: 34px; }
+    .schedule .ticket { width: 86px; font-weight: 700; }
+    .schedule .time { width: 58px; }
+    .schedule .break-row td { height: 28px; color: #e0203d; font-weight: 700; background: #fff; }
+    .reminder { font-size: 10px; }
+    .notes { display: flex; justify-content: space-between; gap: 24px; margin-top: 12px; font-size: 12px; font-weight: 700; }
+    .stamp { align-self: flex-start; width: 138px; height: auto; margin-right: 42px; display: block; transform: rotate(-14deg); opacity: .95; }
+  </style>
+</head>
+<body>${sheet.outerHTML}</body>
+</html>`;
+      const blob = new Blob(["\ufeff", html], { type: "application/msword;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `護理師甄選複試時間分配表_${group}.doc`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
     function loadSample() {
       byId("title").value = "宜蘭縣112學年度學校新進護理師聯合甄選複試時間分配表";
       byId("dateText").value = "112年12月10日";
@@ -1256,6 +1300,7 @@
       render();
       window.print();
     });
+    byId("wordBtn").addEventListener("click", exportWord);
     byId("csvBtn").addEventListener("click", exportCsv);
     byId("sampleBtn").addEventListener("click", loadSample);
     byId("stampUpload").addEventListener("change", (event) => handleStampUpload(event.target.files[0]));
