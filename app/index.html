@@ -699,7 +699,7 @@
 
       <div class="actions flow-output" aria-label="輸出操作">
         <button class="primary" id="printBtn" type="button">列印 / 另存 PDF</button>
-        <button id="wordBtn" type="button">匯出 Word</button>
+        <button id="wordBtn" type="button">匯出 Word（DOCX）</button>
         <button id="csvBtn" type="button">匯出 CSV</button>
         <button id="sampleBtn" type="button">載入附件範例</button>
       </div>
@@ -1198,6 +1198,279 @@
         .replaceAll("'", "&#039;");
     }
 
+    function escapeXml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&apos;");
+    }
+
+    function crc32(bytes) {
+      if (!crc32.table) {
+        crc32.table = Array.from({ length: 256 }, (_, index) => {
+          let value = index;
+          for (let bit = 0; bit < 8; bit += 1) {
+            value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+          }
+          return value >>> 0;
+        });
+      }
+      let crc = 0xffffffff;
+      bytes.forEach((byte) => {
+        crc = crc32.table[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+      });
+      return (crc ^ 0xffffffff) >>> 0;
+    }
+
+    function concatBytes(parts) {
+      const total = parts.reduce((sum, part) => sum + part.length, 0);
+      const output = new Uint8Array(total);
+      let offset = 0;
+      parts.forEach((part) => {
+        output.set(part, offset);
+        offset += part.length;
+      });
+      return output;
+    }
+
+    function uint16(value) {
+      return new Uint8Array([value & 0xff, (value >>> 8) & 0xff]);
+    }
+
+    function uint32(value) {
+      return new Uint8Array([value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, (value >>> 24) & 0xff]);
+    }
+
+    function createZip(files) {
+      const encoder = new TextEncoder();
+      const localParts = [];
+      const centralParts = [];
+      let offset = 0;
+
+      files.forEach((file) => {
+        const nameBytes = encoder.encode(file.name);
+        const data = typeof file.data === "string" ? encoder.encode(file.data) : file.data;
+        const checksum = crc32(data);
+        const localHeader = concatBytes([
+          uint32(0x04034b50), uint16(20), uint16(0x0800), uint16(0),
+          uint16(0), uint16(0), uint32(checksum), uint32(data.length), uint32(data.length),
+          uint16(nameBytes.length), uint16(0), nameBytes
+        ]);
+        localParts.push(localHeader, data);
+        centralParts.push(concatBytes([
+          uint32(0x02014b50), uint16(20), uint16(20), uint16(0x0800), uint16(0),
+          uint16(0), uint16(0), uint32(checksum), uint32(data.length), uint32(data.length),
+          uint16(nameBytes.length), uint16(0), uint16(0), uint16(0), uint16(0),
+          uint32(0), uint32(offset), nameBytes
+        ]));
+        offset += localHeader.length + data.length;
+      });
+
+      const centralDirectory = concatBytes(centralParts);
+      const endRecord = concatBytes([
+        uint32(0x06054b50), uint16(0), uint16(0), uint16(files.length), uint16(files.length),
+        uint32(centralDirectory.length), uint32(offset), uint16(0)
+      ]);
+      return concatBytes([...localParts, centralDirectory, endRecord]);
+    }
+
+    function dataUriToBytes(dataUri) {
+      const match = /^data:([^;]+);base64,(.+)$/.exec(dataUri || "");
+      if (!match) return null;
+      const binary = atob(match[2]);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index);
+      }
+      const extension = match[1].includes("jpeg") || match[1].includes("jpg") ? "jpg" : "png";
+      return { bytes, mime: match[1], extension };
+    }
+
+    function wordRun(text, options = {}) {
+      const props = [
+        options.bold ? "<w:b/>" : "",
+        options.color ? `<w:color w:val="${options.color}"/>` : "",
+        options.size ? `<w:sz w:val="${options.size}"/>` : "",
+        options.font ? `<w:rFonts w:ascii="${options.font}" w:eastAsia="${options.font}" w:hAnsi="${options.font}"/>` : ""
+      ].join("");
+      const lines = String(text ?? "").split(/\n/);
+      return `<w:r>${props ? `<w:rPr>${props}</w:rPr>` : ""}${lines.map((line, index) => `${index ? "<w:br/>" : ""}<w:t xml:space="preserve">${escapeXml(line)}</w:t>`).join("")}</w:r>`;
+    }
+
+    function wordParagraph(content = "", options = {}) {
+      const runs = Array.isArray(content) ? content.join("") : wordRun(content, options);
+      const props = [
+        options.align ? `<w:jc w:val="${options.align}"/>` : "",
+        options.spacingAfter !== undefined ? `<w:spacing w:after="${options.spacingAfter}"/>` : "",
+        options.spacingBefore !== undefined ? `<w:spacing w:before="${options.spacingBefore}"/>` : ""
+      ].join("");
+      return `<w:p>${props ? `<w:pPr>${props}</w:pPr>` : ""}${runs}</w:p>`;
+    }
+
+    function wordCell(content, options = {}) {
+      const width = options.width ? `<w:tcW w:w="${options.width}" w:type="dxa"/>` : "";
+      const gridSpan = options.gridSpan ? `<w:gridSpan w:val="${options.gridSpan}"/>` : "";
+      const vMerge = options.vMerge ? `<w:vMerge${options.vMerge === "restart" ? ' w:val="restart"' : ""}/>` : "";
+      const shade = options.shade ? `<w:shd w:fill="${options.shade}"/>` : "";
+      const vAlign = "<w:vAlign w:val=\"center\"/>";
+      const cellProps = `<w:tcPr>${width}${gridSpan}${vMerge}${shade}${vAlign}</w:tcPr>`;
+      return `<w:tc>${cellProps}${wordParagraph(content, {
+        align: options.align || "center",
+        bold: options.bold,
+        color: options.color,
+        size: options.size || 20,
+        spacingAfter: 0
+      })}</w:tc>`;
+    }
+
+    function wordTable(rows, config) {
+      const widths = [520, 1100, 760, 760, 760, 760, 760, 760, 760, 760, 760, 760];
+      const headerShade = "EEF1F6";
+      const tableRows = [
+        `<w:tr>${[
+          wordCell("序\n號", { width: widths[0], vMerge: "restart", bold: true, shade: headerShade }),
+          wordCell("准考證\n號碼", { width: widths[1], vMerge: "restart", bold: true, shade: headerShade }),
+          wordCell(`報到\n${config.checkinRoom}${config.roomNote ? `（${config.roomNote}）` : ""}`, { width: widths[2], vMerge: "restart", bold: true, shade: headerShade, size: 18 }),
+          wordCell("引導抽題", { width: widths[3], vMerge: "restart", bold: true, shade: headerShade }),
+          wordCell(`實作抽題準備\n${config.prepRoom}${config.roomNote ? `（${config.roomNote}）` : ""}`, { gridSpan: 2, bold: true, shade: headerShade, size: 18 }),
+          wordCell(`實作\n${config.practiceRoom}${config.roomNote ? `（${config.roomNote}）` : ""}`, { gridSpan: 3, bold: true, shade: headerShade, size: 18 }),
+          wordCell(`口試\n${config.oralRoom}${config.roomNote ? `（${config.roomNote}）` : ""}`, { gridSpan: 3, bold: true, shade: headerShade, size: 18 })
+        ].join("")}</w:tr>`,
+        `<w:tr>${[
+          wordCell("", { vMerge: "continue", shade: headerShade }),
+          wordCell("", { vMerge: "continue", shade: headerShade }),
+          wordCell("", { vMerge: "continue", shade: headerShade }),
+          wordCell("", { vMerge: "continue", shade: headerShade }),
+          ...["開始", "結束", "開始", "提醒", "結束", "開始", "提醒", "結束"].map((text) => wordCell(text, { bold: true, shade: headerShade }))
+        ].join("")}</w:tr>`
+      ];
+
+      rows.forEach((row) => {
+        if (row.type === "break") {
+          tableRows.push(`<w:tr>${[
+            wordCell("", { gridSpan: 4 }),
+            wordCell(row.prepText, { gridSpan: 2, bold: true, color: "E0203D", size: 24 }),
+            wordCell(row.practiceText, { gridSpan: 3, bold: true, color: "E0203D", size: 24 }),
+            wordCell(row.oralText, { gridSpan: 3, bold: true, color: "E0203D", size: 24 })
+          ].join("")}</w:tr>`);
+          return;
+        }
+
+        tableRows.push(`<w:tr>${[
+          wordCell(row.number),
+          wordCell(row.ticket, { bold: true }),
+          wordCell(row.checkin),
+          wordCell(row.guide),
+          wordCell(row.prepStart),
+          wordCell(row.prepEnd),
+          wordCell(row.practiceStart),
+          wordCell(row.practiceReminder, { size: 18 }),
+          wordCell(row.practiceEnd),
+          wordCell(row.oralStart),
+          wordCell(row.oralReminder, { size: 18 }),
+          wordCell(row.oralEnd)
+        ].join("")}</w:tr>`);
+      });
+
+      return `<w:tbl>
+        <w:tblPr>
+          <w:tblW w:w="0" w:type="auto"/>
+          <w:tblLayout w:type="fixed"/>
+          <w:tblBorders>
+            <w:top w:val="single" w:sz="12" w:space="0" w:color="1F2A3A"/>
+            <w:left w:val="single" w:sz="12" w:space="0" w:color="1F2A3A"/>
+            <w:bottom w:val="single" w:sz="12" w:space="0" w:color="1F2A3A"/>
+            <w:right w:val="single" w:sz="12" w:space="0" w:color="1F2A3A"/>
+            <w:insideH w:val="single" w:sz="6" w:space="0" w:color="1F2A3A"/>
+            <w:insideV w:val="single" w:sz="6" w:space="0" w:color="1F2A3A"/>
+          </w:tblBorders>
+        </w:tblPr>
+        <w:tblGrid>${widths.map((width) => `<w:gridCol w:w="${width}"/>`).join("")}</w:tblGrid>
+        ${tableRows.join("")}
+      </w:tbl>`;
+    }
+
+    function wordImageParagraph() {
+      return `<w:p><w:pPr><w:jc w:val="right"/><w:spacing w:before="60" w:after="0"/></w:pPr><w:r><w:drawing>
+        <wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+          <wp:extent cx="1314450" cy="977900"/>
+          <wp:docPr id="1" name="甄選戳章"/>
+          <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+            <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+              <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                <pic:nvPicPr><pic:cNvPr id="1" name="stamp"/><pic:cNvPicPr/></pic:nvPicPr>
+                <pic:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
+                <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1314450" cy="977900"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
+              </pic:pic>
+            </a:graphicData>
+          </a:graphic>
+        </wp:inline>
+      </w:drawing></w:r></w:p>`;
+    }
+
+    function buildDocxDocumentXml(rows, config, includeStamp) {
+      const noteParagraphs = config.notes
+        .split(/\n/)
+        .filter(Boolean)
+        .map((line) => wordParagraph(line, { bold: true, size: 20, spacingAfter: 0 }))
+        .join("");
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+  xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+  xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+  xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+  <w:body>
+    ${wordParagraph(config.title, { align: "center", bold: true, size: 28, spacingAfter: 80 })}
+    ${wordParagraph([
+      wordRun(prefixedText("複試日期", config.dateText), { bold: true, size: 20 }),
+      wordRun("　　　　", { size: 20 }),
+      wordRun(`【組別：${config.groupText}】`, { bold: true, color: "B5162E", size: 24 }),
+      wordRun("　　　　", { size: 20 }),
+      wordRun(prefixedText("考場地點", config.examLocationText), { bold: true, size: 20 })
+    ], { align: "center", spacingAfter: 80 })}
+    ${wordTable(rows, config)}
+    ${noteParagraphs}
+    ${includeStamp ? wordImageParagraph() : ""}
+    <w:sectPr>
+      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgMar w:top="454" w:right="454" w:bottom="454" w:left="454" w:header="0" w:footer="0" w:gutter="0"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`;
+    }
+
+    function buildDocx(rows, config) {
+      const stampSource = byId("showStamp").checked ? (byId("stampData").value || defaultStampSrc) : "";
+      const stamp = dataUriToBytes(stampSource);
+      const includeStamp = Boolean(stamp);
+      const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  ${includeStamp ? `<Default Extension="${stamp.extension}" ContentType="${stamp.mime}"/>` : ""}
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+      const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+      const documentRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  ${includeStamp ? `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/stamp.${stamp.extension}"/>` : ""}
+</Relationships>`;
+      const files = [
+        { name: "[Content_Types].xml", data: contentTypes },
+        { name: "_rels/.rels", data: rootRels },
+        { name: "word/document.xml", data: buildDocxDocumentXml(rows, config, includeStamp) },
+        { name: "word/_rels/document.xml.rels", data: documentRels }
+      ];
+      if (includeStamp) files.push({ name: `word/media/stamp.${stamp.extension}`, data: stamp.bytes });
+      return createZip(files);
+    }
+
     function exportCsv() {
       const rows = render().filter((row) => row.type === "candidate");
       if (!rows.length) return;
@@ -1220,44 +1493,15 @@
     }
 
     function exportWord() {
-      render();
-      const sheet = byId("sheet").cloneNode(true);
-      const title = byId("title").value.trim() || "護理師甄選複試時間分配表";
+      const config = getConfig();
+      const rows = render();
+      if (!rows.length || validate(config).length) return;
       const group = byId("groupText").value.trim() || "未分組";
-      const html = `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>${escapeHtml(title)}</title>
-  <style>
-    @page { size: A4 portrait; margin: 8mm; }
-    body { margin: 0; color: #000; font-family: "Times New Roman", "PMingLiU", "Noto Serif TC", serif; }
-    .sheet { width: 18.4cm; margin: 0 auto; padding: 0; background: #fff; color: #000; font-family: "Times New Roman", "PMingLiU", "Noto Serif TC", serif; }
-    .doc-title { margin: 0; text-align: center; font-size: 19px; font-weight: 700; letter-spacing: 0; }
-    .doc-meta { display: flex; align-items: flex-end; justify-content: space-between; margin: 6px 0 8px; font-size: 13px; font-weight: 700; }
-    .doc-meta-side { width: 32%; }
-    .doc-group { flex: 1; text-align: center; color: #b5162e; font-size: 16px; }
-    .doc-location { text-align: right; }
-    .schedule { width: 100%; border-collapse: collapse; table-layout: fixed; border: 2px solid #1f2a3a; font-size: 12px; }
-    .schedule th, .schedule td { border: 1px solid #1f2a3a; padding: 4px 3px; text-align: center; vertical-align: middle; white-space: nowrap; }
-    .schedule th { background: #eef1f6; font-weight: 700; }
-    .schedule .sub { display: block; color: #d9233f; font-size: 10px; line-height: 1.2; white-space: normal; }
-    .schedule .number { width: 34px; }
-    .schedule .ticket { width: 86px; font-weight: 700; }
-    .schedule .time { width: 58px; }
-    .schedule .break-row td { height: 28px; color: #e0203d; font-weight: 700; background: #fff; }
-    .reminder { font-size: 10px; }
-    .notes { display: flex; justify-content: space-between; gap: 24px; margin-top: 12px; font-size: 12px; font-weight: 700; }
-    .stamp { align-self: flex-start; width: 138px; height: auto; margin-right: 42px; display: block; transform: rotate(-14deg); opacity: .95; }
-  </style>
-</head>
-<body>${sheet.outerHTML}</body>
-</html>`;
-      const blob = new Blob(["\ufeff", html], { type: "application/msword;charset=utf-8" });
+      const blob = new Blob([buildDocx(rows, config)], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `護理師甄選複試時間分配表_${group}.doc`;
+      link.download = `護理師甄選複試時間分配表_${group}.docx`;
       link.click();
       URL.revokeObjectURL(url);
     }
