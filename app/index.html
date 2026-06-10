@@ -361,11 +361,19 @@
       font-weight: 700;
     }
 
+    .doc-meta-side {
+      width: 32%;
+    }
+
     .doc-group {
       flex: 1;
       text-align: center;
       color: var(--accent);
       font-size: 16px;
+    }
+
+    .doc-location {
+      text-align: right;
     }
 
     .schedule {
@@ -535,8 +543,11 @@
           <label class="full">標題
             <input id="title" value="宜蘭縣112學年度學校新進護理師聯合甄選複試時間分配表">
           </label>
-          <label>日期文字
-            <input id="dateText" value="日期112年12月10日">
+          <label>複試日期
+            <input id="dateText" value="112年12月10日">
+          </label>
+          <label>考場地點
+            <input id="examLocationText" value="羅東國中">
           </label>
           <label>組別
             <input id="groupText" value="A組">
@@ -697,9 +708,9 @@
       <article class="sheet" id="sheet">
         <h2 class="doc-title" id="docTitle"></h2>
         <div class="doc-meta">
-          <span id="docDate"></span>
+          <span class="doc-meta-side" id="docDate"></span>
           <strong class="doc-group">【組別：<span id="docGroup"></span>】</strong>
-          <span aria-hidden="true"></span>
+          <span class="doc-meta-side doc-location" id="docLocation"></span>
         </div>
         <table class="schedule">
           <thead>
@@ -736,7 +747,7 @@
 
   <script>
     const fields = [
-      "title", "dateText", "groupText", "startTime", "candidateGap",
+      "title", "dateText", "examLocationText", "groupText", "startTime", "candidateGap",
       "checkinRoom", "prepRoom", "practiceRoom", "oralRoom", "roomNote",
       "guideOffset", "prepOffset", "prepDuration", "practiceOffset",
       "practiceDuration", "practiceReminderBeforeEnd", "oralReadyOffset",
@@ -955,6 +966,16 @@
       return `${hours}:${String(minutes).padStart(2, "0")}`;
     }
 
+    function prefixedText(label, value) {
+      const text = String(value || "")
+        .trim()
+        .replace(new RegExp(`^${label}\\s*[:：]?\\s*`), "")
+        .replace(/^日期\s*[:：]?\s*/, "")
+        .replace(/^複試日期\s*[:：]?\s*/, "")
+        .replace(/^考場地點\s*[:：]?\s*/, "");
+      return text ? `${label}：${text}` : "";
+    }
+
     function parseTickets(value) {
       return value
         .split(/[\s,，、;；]+/)
@@ -983,6 +1004,7 @@
       return {
         title: byId("title").value.trim(),
         dateText: byId("dateText").value.trim(),
+        examLocationText: byId("examLocationText").value.trim(),
         groupText: byId("groupText").value.trim(),
         startTime: parseTime(byId("startTime").value),
         candidateGap: numberValue("candidateGap"),
@@ -1127,8 +1149,9 @@
       if (errors.length) return [];
 
       byId("docTitle").textContent = config.title;
-      byId("docDate").textContent = config.dateText;
+      byId("docDate").textContent = prefixedText("複試日期", config.dateText);
       byId("docGroup").textContent = config.groupText;
+      byId("docLocation").textContent = prefixedText("考場地點", config.examLocationText);
       byId("checkinHeader").textContent = `${config.checkinRoom}（${config.roomNote}）`;
       byId("prepHeader").textContent = `${config.prepRoom}（${config.roomNote}）`;
       byId("practiceHeader").textContent = `${config.practiceRoom}（${config.roomNote}）`;
@@ -1197,7 +1220,8 @@
 
     function loadSample() {
       byId("title").value = "宜蘭縣112學年度學校新進護理師聯合甄選複試時間分配表";
-      byId("dateText").value = "日期112年12月10日";
+      byId("dateText").value = "112年12月10日";
+      byId("examLocationText").value = "羅東國中";
       byId("groupText").value = "A組";
       byId("startTime").value = "08:00";
       byId("candidateGap").value = "15";
