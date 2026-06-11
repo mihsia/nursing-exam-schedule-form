@@ -602,6 +602,8 @@
     const authKey = "nursingExamScheduleAuthV1";
     const authSessionKey = "nursingExamScheduleSessionV1";
     let authMode = "login";
+    let authBackend = "local";
+    let authStatus = { configured: false, authenticated: false };
     let importedRows = [];
     let assignedRows = [];
 
@@ -642,6 +644,33 @@
       }
     }
 
+    async function requestAuthApi(action, payload = null) {
+      const response = await fetch(`api/auth.php?action=${encodeURIComponent(action)}`, {
+        method: payload ? "POST" : "GET",
+        headers: payload ? { "Content-Type": "application/json" } : {},
+        credentials: "same-origin",
+        body: payload ? JSON.stringify(payload) : undefined
+      });
+      const data = await response.json();
+      if (!response.ok || data.ok === false) {
+        throw new Error(data.message || "登入服務暫時無法使用。");
+      }
+      return data;
+    }
+
+    async function loadAuthStatus() {
+      try {
+        authStatus = await requestAuthApi("status");
+        authBackend = "api";
+      } catch {
+        authBackend = "local";
+        authStatus = {
+          configured: Boolean(readAuthConfig()),
+          authenticated: sessionStorage.getItem(authSessionKey) === "ok"
+        };
+      }
+    }
+
     function setAuthMessage(message, isError = true) {
       const messageBox = byId("authMessage");
       messageBox.textContent = message;
@@ -660,7 +689,14 @@
       document.body.classList.add("auth-ready");
     }
 
-    function lockApp() {
+    async function lockApp() {
+      if (authBackend === "api") {
+        try {
+          await requestAuthApi("logout", {});
+        } catch {
+          // Local UI lock still matters even if the network logout call fails.
+        }
+      }
       sessionStorage.removeItem(authSessionKey);
       document.body.classList.add("auth-locked");
       document.body.classList.remove("auth-ready");
@@ -668,24 +704,28 @@
     }
 
     function configureAuthScreen() {
-      const hasConfig = Boolean(readAuthConfig());
+      const hasConfig = authBackend === "api" ? authStatus.configured : Boolean(readAuthConfig());
       authMode = hasConfig ? "login" : "setup";
       byId("authTitle").textContent = hasConfig ? "護理師甄選系統登入" : "首次設定管理帳密";
       byId("authSubtitle").textContent = hasConfig
         ? "請先登入後再使用成績 S 型分組。"
-        : "請建立本機管理帳號與密碼，完成後即可進入系統。";
+        : authBackend === "api"
+          ? "請建立資料庫管理帳號與密碼，完成後即可進入系統。"
+          : "請建立本機管理帳號與密碼，完成後即可進入系統。";
       byId("authSubmit").textContent = hasConfig ? "登入" : "建立並登入";
       byId("authConfirmWrap").style.display = hasConfig ? "none" : "grid";
       byId("authPass").autocomplete = hasConfig ? "current-password" : "new-password";
-      byId("authNote").textContent = hasConfig
-        ? "登入狀態只保留在目前瀏覽器分頁；關閉分頁後需重新登入。"
-        : "密碼會以瀏覽器加鹽雜湊保存。若忘記密碼，需清除本網站瀏覽器資料後重新設定。";
+      byId("authNote").textContent = authBackend === "api"
+        ? "登入狀態由 NAS 後端 session 管理，帳號密碼保存在 MariaDB。"
+        : hasConfig
+          ? "登入狀態只保留在目前瀏覽器分頁；關閉分頁後需重新登入。"
+          : "密碼會以瀏覽器加鹽雜湊保存。若忘記密碼，需清除本網站瀏覽器資料後重新設定。";
       setAuthMessage("");
     }
 
     async function handleAuthSubmit(event) {
       event.preventDefault();
-      if (!crypto?.subtle) {
+      if (authBackend === "local" && !crypto?.subtle) {
         setAuthMessage("此瀏覽器不支援安全雜湊，請改用最新版 Chrome、Edge 或 Safari。");
         shakeAuthCard();
         return;
@@ -702,25 +742,34 @@
         if (authMode === "setup") {
           if (password.length < 8) throw new Error("密碼至少需要 8 個字元。");
           if (password !== confirm) throw new Error("兩次輸入的密碼不一致。");
-          const salt = crypto.getRandomValues(new Uint8Array(16));
-          localStorage.setItem(authKey, JSON.stringify({
-            username,
-            salt: bytesToBase64(salt),
-            hash: await passwordHash(password, salt),
-            createdAt: new Date().toISOString()
-          }));
+          if (authBackend === "api") {
+            await requestAuthApi("setup", { username, password });
+          } else {
+            const salt = crypto.getRandomValues(new Uint8Array(16));
+            localStorage.setItem(authKey, JSON.stringify({
+              username,
+              salt: bytesToBase64(salt),
+              hash: await passwordHash(password, salt),
+              createdAt: new Date().toISOString()
+            }));
+          }
         } else {
-          const config = readAuthConfig();
-          if (!config || username !== config.username) throw new Error("帳號或密碼不正確。");
-          const hash = await passwordHash(password, base64ToBytes(config.salt));
-          if (hash !== config.hash) throw new Error("帳號或密碼不正確。");
+          if (authBackend === "api") {
+            await requestAuthApi("login", { username, password });
+          } else {
+            const config = readAuthConfig();
+            if (!config || username !== config.username) throw new Error("帳號或密碼不正確。");
+            const hash = await passwordHash(password, base64ToBytes(config.salt));
+            if (hash !== config.hash) throw new Error("帳號或密碼不正確。");
+          }
         }
 
         sessionStorage.setItem(authSessionKey, "ok");
         submit.classList.add("success");
         submit.textContent = "登入成功";
         setAuthMessage("登入成功，正在進入系統。", false);
-        setTimeout(() => {
+        setTimeout(async () => {
+          await loadAuthStatus();
           unlockApp();
           submit.classList.remove("success");
           configureAuthScreen();
@@ -742,9 +791,10 @@
       byId("authTogglePass").textContent = nextType === "password" ? "顯示" : "隱藏";
     }
 
-    function initAuth() {
+    async function initAuth() {
+      await loadAuthStatus();
       configureAuthScreen();
-      if (readAuthConfig() && sessionStorage.getItem(authSessionKey) === "ok") {
+      if (authStatus.configured && authStatus.authenticated) {
         unlockApp();
       }
     }

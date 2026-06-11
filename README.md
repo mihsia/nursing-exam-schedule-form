@@ -52,10 +52,18 @@
 
 ## 登入與資安
 
-- 主表單第一次使用會要求建立本機管理帳號與密碼，密碼以加鹽 PBKDF2 雜湊保存在瀏覽器本機資料。
-- 登入狀態只存在目前分頁的 sessionStorage，關閉分頁後需重新登入。
-- 若忘記密碼，需清除本網站瀏覽器資料後重新設定帳密。
-- 此機制屬於純前端使用門檻，適合避免一般使用者誤入；若需真正限制公開網站存取，建議另接 Cloudflare Access、Netlify/Vercel 後端驗證，或改用有伺服器的部署方式。
+- 在支援 PHP + MariaDB 的 NAS 環境中，登入會優先使用 `api/auth.php`，帳號密碼保存在 MariaDB，登入狀態由 PHP session 管理。
+- 若部署在 GitHub Pages 等沒有 PHP 的靜態環境，會自動退回瀏覽器本機登入，密碼以加鹽 PBKDF2 雜湊保存在瀏覽器本機資料。
+- 外網使用時仍建議搭配 HTTPS、NAS 防火牆、反向代理存取控制或 VPN/Tailscale，不建議只依賴前端登入。
+
+### NAS MariaDB 登入設定
+
+1. 在 Synology MariaDB 建立資料庫，例如 `nursing_exam`。
+2. 建立專用資料庫使用者，例如 `nursing_exam_user`，只授權存取 `nursing_exam`。
+3. 匯入 `app/api/schema.sql` 建立 `users` 資料表。
+4. 在 NAS 的網站目錄中，將 `api/config.sample.php` 複製成 `api/config.php`。
+5. 編輯 `api/config.php`，填入 MariaDB 主機、資料庫名稱、使用者與密碼。
+6. 第一次開啟網站時，登入畫面會要求建立第一組管理帳號，之後兩個頁面共用同一個資料庫登入。
 
 ## 成績 S 型分組
 
