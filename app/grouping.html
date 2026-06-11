@@ -196,6 +196,163 @@
       opacity: 0.45;
     }
 
+    body.auth-locked {
+      min-height: 100vh;
+      overflow: hidden;
+      background:
+        linear-gradient(rgba(118, 172, 209, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(118, 172, 209, 0.06) 1px, transparent 1px),
+        radial-gradient(circle at 18% 16%, rgba(63, 139, 184, 0.28), transparent 28%),
+        radial-gradient(circle at 86% 12%, rgba(27, 94, 132, 0.24), transparent 30%),
+        linear-gradient(135deg, #071324 0%, #0a1b31 48%, #06101f 100%);
+      background-size: 28px 28px, 28px 28px, auto, auto, auto;
+    }
+
+    body.auth-locked .shell {
+      display: none;
+    }
+
+    body.auth-ready .auth-screen {
+      display: none;
+    }
+
+    .auth-screen {
+      display: grid;
+      min-height: 100vh;
+      place-items: center;
+      padding: 24px;
+      color: #f7fbff;
+    }
+
+    .auth-card {
+      width: min(420px, 100%);
+      border: 1px solid rgba(197, 224, 242, 0.28);
+      border-radius: 18px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08)), rgba(10, 27, 49, 0.58);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(18px);
+      padding: 30px;
+    }
+
+    .auth-card.shake {
+      animation: auth-shake 0.36s ease;
+    }
+
+    .auth-brand {
+      display: grid;
+      justify-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .auth-logo {
+      width: 76px;
+      height: 76px;
+      border-radius: 22px;
+      border: 1px solid rgba(177, 222, 245, 0.48);
+      background: linear-gradient(145deg, rgba(22, 86, 122, 0.9), rgba(5, 20, 38, 0.84));
+      box-shadow: 0 0 32px rgba(61, 170, 218, 0.28);
+      padding: 12px;
+    }
+
+    .auth-brand h1 {
+      margin: 0;
+      font-size: 23px;
+      letter-spacing: 0;
+    }
+
+    .auth-brand p,
+    .auth-note {
+      margin: 0;
+      color: #b9cad9;
+      font-size: 13px;
+    }
+
+    .auth-form {
+      display: grid;
+      gap: 14px;
+    }
+
+    .auth-form label {
+      color: #e8f2fb;
+    }
+
+    .auth-form input {
+      border-color: rgba(185, 211, 230, 0.28);
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .auth-form input:focus {
+      border-color: #75d0ff;
+      background: rgba(255, 255, 255, 0.14);
+      box-shadow: 0 0 0 4px rgba(93, 190, 236, 0.18), 0 0 24px rgba(93, 190, 236, 0.25);
+    }
+
+    .password-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: end;
+    }
+
+    .password-toggle {
+      width: 44px;
+      min-height: 38px;
+      border-color: rgba(185, 211, 230, 0.28);
+      background: rgba(255, 255, 255, 0.11);
+      color: #d8eefb;
+      padding: 0;
+    }
+
+    .auth-submit {
+      margin-top: 8px;
+      border-color: #4db8f2;
+      background: linear-gradient(135deg, #1b75bb, #0f4f88);
+      color: #fff;
+      box-shadow: 0 12px 26px rgba(12, 81, 138, 0.32);
+    }
+
+    .auth-submit.success {
+      border-color: #19a974;
+      background: linear-gradient(135deg, #20b57d, #0b7a55);
+    }
+
+    .auth-message {
+      min-height: 20px;
+      color: #ffc7cf;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .tool-title-row {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .logout-btn {
+      min-height: 32px;
+      border-color: #cbd7e4;
+      background: #f8fafc;
+      color: #415066;
+      padding: 5px 9px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    @keyframes auth-shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-9px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-6px); }
+      80% { transform: translateX(4px); }
+    }
+
     .preview {
       overflow: auto;
       padding: 18px;
@@ -292,12 +449,46 @@
     }
   </style>
 </head>
-<body>
+<body class="auth-locked">
+  <section class="auth-screen" aria-label="系統登入">
+    <div class="auth-card" id="authCard">
+      <div class="auth-brand">
+        <svg class="auth-logo" viewBox="0 0 120 120" aria-hidden="true">
+          <path d="M28 62h18l7-18 13 42 10-24h18" fill="none" stroke="#82dcff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="60" cy="60" r="47" fill="none" stroke="rgba(209,239,255,.42)" stroke-width="5"/>
+        </svg>
+        <div>
+          <h1 id="authTitle">護理師甄選系統登入</h1>
+          <p id="authSubtitle">請先登入後再使用成績 S 型分組。</p>
+        </div>
+      </div>
+      <form class="auth-form" id="authForm">
+        <label>帳號
+          <input id="authUser" autocomplete="username" placeholder="請輸入帳號">
+        </label>
+        <div class="password-row">
+          <label>密碼
+            <input id="authPass" type="password" autocomplete="current-password" placeholder="請輸入密碼">
+          </label>
+          <button class="password-toggle" id="authTogglePass" type="button" aria-label="顯示或隱藏密碼">顯示</button>
+        </div>
+        <label id="authConfirmWrap" style="display:none;">確認密碼
+          <input id="authConfirm" type="password" autocomplete="new-password" placeholder="首次設定請再輸入一次">
+        </label>
+        <button class="auth-submit" id="authSubmit" type="submit">登入</button>
+        <div class="auth-message" id="authMessage" role="status" aria-live="polite"></div>
+        <p class="auth-note" id="authNote">登入狀態只保留在目前瀏覽器分頁；關閉分頁後需重新登入。</p>
+      </form>
+    </div>
+  </section>
   <main class="shell">
     <section class="controls panel">
       <header class="tool-head">
         <a class="nav-link" href="index.html">返回複試時間分配表</a>
-        <h1>成績 S 型分組</h1>
+        <div class="tool-title-row">
+          <h1>成績 S 型分組</h1>
+          <button class="logout-btn" id="logoutBtn" type="button">登出</button>
+        </div>
         <p>匯入成績檔，依「成績」由高到低排序，再用蛇形方式分配到 A-Z 組，最後匯出分組名冊。</p>
       </header>
 
@@ -408,8 +599,155 @@
     const byId = (id) => document.getElementById(id);
     const historyKey = "nursingExamGroupingHistoryV1";
     const draftKey = "nursingExamGroupingDraftV1";
+    const authKey = "nursingExamScheduleAuthV1";
+    const authSessionKey = "nursingExamScheduleSessionV1";
+    let authMode = "login";
     let importedRows = [];
     let assignedRows = [];
+
+    function bytesToBase64(bytes) {
+      let binary = "";
+      bytes.forEach((byte) => {
+        binary += String.fromCharCode(byte);
+      });
+      return btoa(binary);
+    }
+
+    function base64ToBytes(value) {
+      const binary = atob(value);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index);
+      }
+      return bytes;
+    }
+
+    async function passwordHash(password, saltBytes) {
+      const passwordBytes = new TextEncoder().encode(password);
+      const key = await crypto.subtle.importKey("raw", passwordBytes, "PBKDF2", false, ["deriveBits"]);
+      const bits = await crypto.subtle.deriveBits({
+        name: "PBKDF2",
+        salt: saltBytes,
+        iterations: 160000,
+        hash: "SHA-256"
+      }, key, 256);
+      return bytesToBase64(new Uint8Array(bits));
+    }
+
+    function readAuthConfig() {
+      try {
+        return JSON.parse(localStorage.getItem(authKey) || "null");
+      } catch {
+        return null;
+      }
+    }
+
+    function setAuthMessage(message, isError = true) {
+      const messageBox = byId("authMessage");
+      messageBox.textContent = message;
+      messageBox.style.color = isError ? "#ffc7cf" : "#a7f3d0";
+    }
+
+    function shakeAuthCard() {
+      const card = byId("authCard");
+      card.classList.remove("shake");
+      void card.offsetWidth;
+      card.classList.add("shake");
+    }
+
+    function unlockApp() {
+      document.body.classList.remove("auth-locked");
+      document.body.classList.add("auth-ready");
+    }
+
+    function lockApp() {
+      sessionStorage.removeItem(authSessionKey);
+      document.body.classList.add("auth-locked");
+      document.body.classList.remove("auth-ready");
+      initAuth();
+    }
+
+    function configureAuthScreen() {
+      const hasConfig = Boolean(readAuthConfig());
+      authMode = hasConfig ? "login" : "setup";
+      byId("authTitle").textContent = hasConfig ? "護理師甄選系統登入" : "首次設定管理帳密";
+      byId("authSubtitle").textContent = hasConfig
+        ? "請先登入後再使用成績 S 型分組。"
+        : "請建立本機管理帳號與密碼，完成後即可進入系統。";
+      byId("authSubmit").textContent = hasConfig ? "登入" : "建立並登入";
+      byId("authConfirmWrap").style.display = hasConfig ? "none" : "grid";
+      byId("authPass").autocomplete = hasConfig ? "current-password" : "new-password";
+      byId("authNote").textContent = hasConfig
+        ? "登入狀態只保留在目前瀏覽器分頁；關閉分頁後需重新登入。"
+        : "密碼會以瀏覽器加鹽雜湊保存。若忘記密碼，需清除本網站瀏覽器資料後重新設定。";
+      setAuthMessage("");
+    }
+
+    async function handleAuthSubmit(event) {
+      event.preventDefault();
+      if (!crypto?.subtle) {
+        setAuthMessage("此瀏覽器不支援安全雜湊，請改用最新版 Chrome、Edge 或 Safari。");
+        shakeAuthCard();
+        return;
+      }
+
+      const username = byId("authUser").value.trim();
+      const password = byId("authPass").value;
+      const confirm = byId("authConfirm").value;
+      const submit = byId("authSubmit");
+      submit.disabled = true;
+
+      try {
+        if (!username || !password) throw new Error("請輸入帳號與密碼。");
+        if (authMode === "setup") {
+          if (password.length < 8) throw new Error("密碼至少需要 8 個字元。");
+          if (password !== confirm) throw new Error("兩次輸入的密碼不一致。");
+          const salt = crypto.getRandomValues(new Uint8Array(16));
+          localStorage.setItem(authKey, JSON.stringify({
+            username,
+            salt: bytesToBase64(salt),
+            hash: await passwordHash(password, salt),
+            createdAt: new Date().toISOString()
+          }));
+        } else {
+          const config = readAuthConfig();
+          if (!config || username !== config.username) throw new Error("帳號或密碼不正確。");
+          const hash = await passwordHash(password, base64ToBytes(config.salt));
+          if (hash !== config.hash) throw new Error("帳號或密碼不正確。");
+        }
+
+        sessionStorage.setItem(authSessionKey, "ok");
+        submit.classList.add("success");
+        submit.textContent = "登入成功";
+        setAuthMessage("登入成功，正在進入系統。", false);
+        setTimeout(() => {
+          unlockApp();
+          submit.classList.remove("success");
+          configureAuthScreen();
+        }, 450);
+      } catch (error) {
+        setAuthMessage(error.message || "登入失敗，請再試一次。");
+        shakeAuthCard();
+      } finally {
+        submit.disabled = false;
+      }
+    }
+
+    function toggleAuthPassword() {
+      const input = byId("authPass");
+      const confirm = byId("authConfirm");
+      const nextType = input.type === "password" ? "text" : "password";
+      input.type = nextType;
+      confirm.type = nextType;
+      byId("authTogglePass").textContent = nextType === "password" ? "顯示" : "隱藏";
+    }
+
+    function initAuth() {
+      configureAuthScreen();
+      if (readAuthConfig() && sessionStorage.getItem(authSessionKey) === "ok") {
+        unlockApp();
+      }
+    }
 
     function settingData() {
       return {
@@ -898,8 +1236,12 @@
     byId("exportHistoryBtn").addEventListener("click", exportHistory);
     byId("importHistoryBtn").addEventListener("click", () => byId("historyFileInput").click());
     byId("historyFileInput").addEventListener("change", (event) => importHistory(event.target.files[0]));
+    byId("authForm").addEventListener("submit", handleAuthSubmit);
+    byId("authTogglePass").addEventListener("click", toggleAuthPassword);
+    byId("logoutBtn").addEventListener("click", lockApp);
     refreshHistorySelect();
     loadDraft();
+    initAuth();
   </script>
 </body>
 </html>
