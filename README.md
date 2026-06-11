@@ -65,6 +65,20 @@
 5. 編輯 `api/config.php`，填入 MariaDB 主機、資料庫名稱、使用者與密碼。
 6. 第一次開啟網站時，登入畫面會要求建立第一組管理帳號，之後兩個頁面共用同一個資料庫登入。
 
+Synology MariaDB 10 常見連線設定：
+
+```php
+'db_host' => '127.0.0.1',
+'db_port' => 3307,
+'db_socket' => '',
+```
+
+若 TCP 連線顯示 `Connection refused`，可改用 socket：
+
+```php
+'db_socket' => '/run/mysqld/mysqld10.sock',
+```
+
 ## 成績 S 型分組
 
 1. 開啟 `app/grouping.html`。
