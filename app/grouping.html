@@ -429,6 +429,47 @@
       max-width: 760px;
     }
 
+    .report-preview {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid #e3e9f1;
+    }
+
+    .report-preview h2 {
+      margin: 0 0 12px;
+      text-align: center;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    .report-table {
+      margin-bottom: 14px;
+      font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+    }
+
+    .report-table th,
+    .report-table td {
+      height: 34px;
+      border: 1px solid #222;
+      color: #111;
+      font-size: 14px;
+      padding: 5px 6px;
+    }
+
+    .report-table th {
+      position: static;
+      background: #fff;
+      font-weight: 800;
+    }
+
+    .report-name-cell {
+      text-align: left;
+    }
+
+    .report-note-cell {
+      color: #666;
+    }
+
     .back {
       display: inline-block;
       margin-bottom: 12px;
@@ -445,6 +486,37 @@
 
       .summary {
         grid-template-columns: repeat(2, minmax(120px, 1fr));
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .controls,
+      .summary,
+      .preview > table:not(.report-table),
+      .group-table {
+        display: none;
+      }
+
+      .shell {
+        display: block;
+        min-height: auto;
+        padding: 0;
+      }
+
+      .preview {
+        border: 0;
+        box-shadow: none;
+        padding: 0;
+      }
+
+      .report-preview {
+        margin: 0;
+        padding: 0;
+        border: 0;
       }
     }
   </style>
@@ -549,10 +621,19 @@
         </div>
       </fieldset>
 
+      <fieldset>
+        <legend>報表設定</legend>
+        <label>複試分組一覽表抬頭
+          <input id="reportTitle" value="宜蘭縣115學年度學校新進護理師聯合甄選複試分組一覽表">
+          <span class="hint">匯出一覽表與畫面預覽會同步使用這個抬頭。</span>
+        </label>
+      </fieldset>
+
       <div class="actions">
         <button class="primary" id="runBtn" type="button">產生 S 型分組</button>
         <button class="success" id="exportBtn" type="button" disabled>匯出 CSV</button>
         <button id="exportFullBtn" type="button" disabled>匯出含成績 CSV</button>
+        <button id="exportReportBtn" type="button" disabled>匯出複試分組一覽表 Excel</button>
       </div>
     </section>
 
@@ -592,6 +673,17 @@
           <tr><td colspan="5">尚未產生資料</td></tr>
         </tbody>
       </table>
+
+      <div class="report-preview" aria-label="複試分組一覽表預覽">
+        <h2 id="reportPreviewTitle">宜蘭縣115學年度學校新進護理師聯合甄選複試分組一覽表</h2>
+        <div id="reportTables">
+          <table class="report-table">
+            <tbody>
+              <tr><td>尚未產生資料</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -601,6 +693,7 @@
     const draftKey = "nursingExamGroupingDraftV1";
     const authKey = "nursingExamScheduleAuthV1";
     const authSessionKey = "nursingExamScheduleSessionV1";
+    const defaultReportTitle = "宜蘭縣115學年度學校新進護理師聯合甄選複試分組一覽表";
     let authMode = "login";
     let authBackend = "local";
     let authStatus = { configured: false, authenticated: false };
@@ -804,13 +897,14 @@
         pasteData: byId("pasteData").value,
         groupCount: byId("groupCount").value,
         finalistCount: byId("finalistCount").value,
-        labelMode: byId("labelMode").value
+        labelMode: byId("labelMode").value,
+        reportTitle: byId("reportTitle").value
       };
     }
 
     function applySettingData(data) {
       if (!data) return;
-      ["pasteData", "groupCount", "finalistCount", "labelMode"].forEach((id) => {
+      ["pasteData", "groupCount", "finalistCount", "labelMode", "reportTitle"].forEach((id) => {
         if (Object.prototype.hasOwnProperty.call(data, id)) byId(id).value = data[id];
       });
       importedRows = [];
@@ -987,25 +1081,53 @@
       return cells;
     }
 
+    function normalizeHeader(value) {
+      return String(value ?? "")
+        .trim()
+        .replace(/\s+/g, "")
+        .replace(/[：:()（）［\]\[\]【】]/g, "")
+        .toLowerCase();
+    }
+
+    function findColumn(headers, aliases) {
+      const normalized = headers.map(normalizeHeader);
+      const normalizedAliases = aliases.map(normalizeHeader);
+      return normalized.findIndex((header) => normalizedAliases.includes(header));
+    }
+
+    function parseScore(value) {
+      const cleaned = String(value ?? "")
+        .trim()
+        .replace(/,/g, "")
+        .replace(/分$/, "");
+      if (!cleaned || /缺考|未到|放棄|標準答案/.test(cleaned)) return NaN;
+      return Number(cleaned);
+    }
+
     function normalizeRows(matrix) {
       if (!matrix.length) return [];
+      const ticketAliases = ["准考證", "准考證號", "准考證號碼", "准考證編號", "考證號", "報名序號"];
+      const scoreAliases = ["成績", "初試成績", "筆試成績", "總成績", "總分", "分數", "原始成績"];
+      const nameAliases = ["姓名", "考生姓名", "名稱"];
       const headerIndex = matrix.findIndex((row) => {
-        const names = row.map((cell) => String(cell ?? "").trim());
-        return names.includes("准考證") && names.includes("成績");
+        const headers = row.map((cell) => String(cell ?? "").trim());
+        return findColumn(headers, ticketAliases) >= 0 && findColumn(headers, scoreAliases) >= 0;
       });
       if (headerIndex < 0) {
-        throw new Error("找不到「准考證」與「成績」欄位。");
+        throw new Error("找不到准考證與成績欄位，請確認檔案含「准考證號／成績」或相近欄名。");
       }
 
       const headers = matrix[headerIndex].map((cell) => String(cell ?? "").trim());
-      const ticketIndex = headers.indexOf("准考證");
-      const scoreIndex = headers.indexOf("成績");
+      const ticketIndex = findColumn(headers, ticketAliases);
+      const scoreIndex = findColumn(headers, scoreAliases);
+      const nameIndex = findColumn(headers, nameAliases);
 
       return matrix.slice(headerIndex + 1)
         .map((row, originalIndex) => {
           const ticket = String(row[ticketIndex] ?? "").trim();
-          const score = Number(String(row[scoreIndex] ?? "").trim());
-          return { ticket, score, originalIndex };
+          const name = nameIndex >= 0 ? String(row[nameIndex] ?? "").trim() : "";
+          const score = parseScore(row[scoreIndex]);
+          return { ticket, name, score, originalIndex };
         })
         .filter((row) => row.ticket && row.ticket !== "標準答案" && Number.isFinite(row.score));
     }
@@ -1156,6 +1278,24 @@
       });
     }
 
+    function ticketCompare(a, b) {
+      const result = String(a.ticket).localeCompare(String(b.ticket), "zh-Hant", {
+        numeric: true,
+        sensitivity: "base"
+      });
+      if (result !== 0) return result;
+      return String(a.ticket).localeCompare(String(b.ticket));
+    }
+
+    function sortedForOutput(rows) {
+      return [...rows].sort((a, b) => {
+        if (a.groupIndex !== b.groupIndex) return a.groupIndex - b.groupIndex;
+        const ticketResult = ticketCompare(a, b);
+        if (ticketResult !== 0) return ticketResult;
+        return a.rank - b.rank;
+      });
+    }
+
     function assignGroups(rows, groupCount, finalistCount) {
       const sorted = sortedByScore(rows).slice(0, finalistCount);
 
@@ -1168,6 +1308,7 @@
           groupIndex,
           group: groupLabel(groupIndex),
           ticket: row.ticket,
+          name: row.name || "",
           score: row.score
         };
       });
@@ -1177,8 +1318,10 @@
       assignedRows = rows;
       byId("exportBtn").disabled = !rows.length;
       byId("exportFullBtn").disabled = !rows.length;
-      byId("resultBody").innerHTML = rows.length
-        ? rows.map((row) => `<tr><td>${row.rank}</td><td>${escapeHtml(row.group)}</td><td>${escapeHtml(row.ticket)}</td><td>${row.score}</td></tr>`).join("")
+      byId("exportReportBtn").disabled = !rows.length;
+      const outputRows = sortedForOutput(rows);
+      byId("resultBody").innerHTML = outputRows.length
+        ? outputRows.map((row) => `<tr><td>${row.rank}</td><td>${escapeHtml(row.group)}</td><td>${escapeHtml(row.ticket)}</td><td>${row.score}</td></tr>`).join("")
         : '<tr><td colspan="4">尚未產生資料</td></tr>';
 
       const scores = rows.map((row) => row.score);
@@ -1187,6 +1330,7 @@
       byId("topScore").textContent = scores.length ? Math.max(...scores) : "-";
       byId("lowScore").textContent = scores.length ? Math.min(...scores) : "-";
       renderStats(rows);
+      renderReport(rows);
     }
 
     function renderStats(rows) {
@@ -1207,6 +1351,64 @@
         .sort((a, b) => rows.find((row) => row.group === a.group).groupIndex - rows.find((row) => row.group === b.group).groupIndex)
         .map((item) => `<tr><td>${escapeHtml(item.group)}</td><td>${item.count}</td><td>${(item.sum / item.count).toFixed(2)}</td><td>${item.high}</td><td>${item.low}</td></tr>`)
         .join("");
+    }
+
+    function reportTitle() {
+      return byId("reportTitle").value.trim() || defaultReportTitle;
+    }
+
+    function reportGroupName(group) {
+      return String(group ?? "").replace(/組$/, "");
+    }
+
+    function groupedRowsForReport(rows) {
+      const groups = new Map();
+      sortedForOutput(rows).forEach((row) => {
+        if (!groups.has(row.groupIndex)) groups.set(row.groupIndex, []);
+        groups.get(row.groupIndex).push(row);
+      });
+      return Array.from(groups.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([groupIndex, items]) => ({ groupIndex, items }));
+    }
+
+    function reportCell(row, sequence) {
+      if (!row) {
+        return '<td></td><td></td><td></td><td></td><td></td>';
+      }
+      return [
+        `<td>${escapeHtml(reportGroupName(row.group))}</td>`,
+        `<td>${sequence}</td>`,
+        `<td>${escapeHtml(row.ticket)}</td>`,
+        `<td class="report-name-cell">${escapeHtml(row.name)}</td>`,
+        '<td class="report-note-cell"></td>'
+      ].join("");
+    }
+
+    function buildReportTablesHtml(rows) {
+      const grouped = groupedRowsForReport(rows);
+      if (!grouped.length) {
+        return '<table class="report-table"><tbody><tr><td>尚未產生資料</td></tr></tbody></table>';
+      }
+
+      const header = '<tr><th>分組</th><th>序號</th><th>准考證號</th><th>姓名</th><th>備註</th><th>分組</th><th>序號</th><th>准考證號</th><th>姓名</th><th>備註</th></tr>';
+      const tables = [];
+      for (let index = 0; index < grouped.length; index += 2) {
+        const left = grouped[index]?.items || [];
+        const right = grouped[index + 1]?.items || [];
+        const maxRows = Math.max(left.length, right.length);
+        const body = [];
+        for (let rowIndex = 0; rowIndex < maxRows; rowIndex += 1) {
+          body.push(`<tr>${reportCell(left[rowIndex], rowIndex + 1)}${reportCell(right[rowIndex], rowIndex + 1)}</tr>`);
+        }
+        tables.push(`<table class="report-table"><thead>${header}</thead><tbody>${body.join("")}</tbody></table>`);
+      }
+      return tables.join("");
+    }
+
+    function renderReport(rows) {
+      byId("reportPreviewTitle").textContent = reportTitle();
+      byId("reportTables").innerHTML = buildReportTablesHtml(rows);
     }
 
     async function loadRowsFromInput() {
@@ -1248,26 +1450,55 @@
 
     function exportCsv(includeScores) {
       if (!assignedRows.length) return;
-      const sorted = [...assignedRows].sort((a, b) => a.groupIndex - b.groupIndex || a.rank - b.rank);
-      const headers = includeScores ? ["組別", "准考證", "成績", "排序"] : ["組別", "准考證"];
+      const sorted = sortedForOutput(assignedRows);
+      const headers = includeScores ? ["組別", "准考證", "姓名", "成績", "排序"] : ["組別", "准考證"];
       const rows = sorted.map((row) => includeScores
-        ? [row.group, row.ticket, row.score, row.rank]
+        ? [row.group, row.ticket, row.name, row.score, row.rank]
         : [row.group, row.ticket]);
       const csv = [headers, ...rows]
         .map((items) => items.map((item) => `"${String(item).replaceAll('"', '""')}"`).join(","))
         .join("\n");
       const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+      downloadBlob(blob, includeScores ? "S型分組_含成績.csv" : "S型分組_組別准考證.csv");
+    }
+
+    function downloadBlob(blob, filename) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = includeScores ? "S型分組_含成績.csv" : "S型分組_組別准考證.csv";
+      link.download = filename;
       link.click();
       URL.revokeObjectURL(url);
+    }
+
+    function exportReportExcel() {
+      if (!assignedRows.length) return;
+      const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+body { font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; }
+h1 { font-size: 18pt; text-align: center; margin: 0 0 14px; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 14px; }
+th, td { border: 1px solid #000; height: 26px; padding: 4px 5px; text-align: center; mso-number-format:"\\@"; }
+th { font-weight: 700; }
+.name { text-align: left; }
+</style>
+</head>
+<body>
+<h1>${escapeHtml(reportTitle())}</h1>
+${buildReportTablesHtml(assignedRows).replaceAll('class="report-table"', "").replaceAll('class="report-name-cell"', 'class="name"').replaceAll('class="report-note-cell"', "")}
+</body>
+</html>`;
+      const blob = new Blob(["\ufeff" + html], { type: "application/vnd.ms-excel;charset=utf-8" });
+      downloadBlob(blob, "複試分組一覽表.xls");
     }
 
     byId("runBtn").addEventListener("click", runGrouping);
     byId("exportBtn").addEventListener("click", () => exportCsv(false));
     byId("exportFullBtn").addEventListener("click", () => exportCsv(true));
+    byId("exportReportBtn").addEventListener("click", exportReportExcel);
     byId("pasteData").addEventListener("input", saveDraft);
     byId("groupCount").addEventListener("input", () => {
       saveDraft();
@@ -1280,6 +1511,10 @@
     byId("labelMode").addEventListener("change", () => {
       saveDraft();
       if (importedRows.length) refreshGrouping();
+    });
+    byId("reportTitle").addEventListener("input", () => {
+      saveDraft();
+      renderReport(assignedRows);
     });
     byId("saveRecordBtn").addEventListener("click", saveRecord);
     byId("loadRecordBtn").addEventListener("click", loadSelectedRecord);
