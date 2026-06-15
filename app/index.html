@@ -998,6 +998,10 @@
     let authMode = "login";
     let authBackend = "local";
     let authStatus = { configured: false, authenticated: false };
+    const recordType = "schedule";
+    let recordsBackend = "local";
+    let remoteHistory = { records: [] };
+    let saveDraftTimer = null;
 
     function numberValue(id) {
       const value = Number(byId(id).value);
@@ -1050,7 +1054,22 @@
       render();
     }
 
-    function readHistory() {
+    async function requestRecordsApi(action, payload = null, query = {}) {
+      const params = new URLSearchParams({ action, ...query });
+      const response = await fetch(`api/records.php?${params.toString()}`, {
+        method: payload ? "POST" : "GET",
+        headers: payload ? { "Content-Type": "application/json" } : {},
+        credentials: "same-origin",
+        body: payload ? JSON.stringify(payload) : undefined
+      });
+      const data = await response.json();
+      if (!response.ok || data.ok === false) {
+        throw new Error(data.message || "資料庫服務暫時無法使用。");
+      }
+      return data;
+    }
+
+    function localHistory() {
       try {
         const parsed = JSON.parse(localStorage.getItem(historyKey) || "{}");
         return { records: Array.isArray(parsed.records) ? parsed.records : [] };
@@ -1059,12 +1078,50 @@
       }
     }
 
-    function writeHistory(history) {
+    function writeLocalHistory(history) {
       localStorage.setItem(historyKey, JSON.stringify({
         version: 1,
         exportedAt: new Date().toISOString(),
         records: history.records.slice(0, 80)
       }));
+    }
+
+    async function loadRemoteRecords() {
+      if (authBackend !== "api" || !authStatus.authenticated) return;
+      try {
+        const [history, draft] = await Promise.all([
+          requestRecordsApi("list", null, { type: recordType }),
+          requestRecordsApi("draft", null, { type: recordType })
+        ]);
+        recordsBackend = "api";
+        remoteHistory = { records: Array.isArray(history.records) ? history.records : [] };
+        refreshHistorySelect();
+        if (draft?.draft?.data) {
+          applyFieldData(draft.draft.data);
+        }
+        setDbStatus("已連線 NAS 資料庫，設定會跨瀏覽器保存。");
+      } catch (error) {
+        recordsBackend = "local";
+        refreshHistorySelect();
+        setDbStatus(`NAS 設定資料庫暫不可用，已改用本機保存：${error.message}`);
+      }
+    }
+
+    function readHistory() {
+      return recordsBackend === "api" ? remoteHistory : localHistory();
+    }
+
+    function writeHistory(history) {
+      if (recordsBackend === "api") {
+        remoteHistory = { records: history.records.slice(0, 80) };
+        remoteHistory.records.forEach((record) => {
+          requestRecordsApi("save", { record }).catch((error) => {
+            setDbStatus(`同步 NAS 失敗：${error.message}`);
+          });
+        });
+      } else {
+        writeLocalHistory(history);
+      }
       refreshHistorySelect();
     }
 
@@ -1091,6 +1148,14 @@
         savedAt: new Date().toISOString(),
         data: fieldData()
       }));
+      if (recordsBackend === "api") {
+        clearTimeout(saveDraftTimer);
+        saveDraftTimer = setTimeout(() => {
+          requestRecordsApi("save_draft", { type: recordType, data: fieldData() }).catch((error) => {
+            setDbStatus(`草稿同步 NAS 失敗：${error.message}`);
+          });
+        }, 650);
+      }
     }
 
     function loadDraft() {
@@ -1102,7 +1167,7 @@
       }
     }
 
-    function saveRecord() {
+    async function saveRecord() {
       const now = new Date();
       const name = byId("recordName").value.trim() || defaultRecordName();
       const history = readHistory();
@@ -1115,9 +1180,23 @@
         data: fieldData()
       };
       history.records = [record, ...history.records.filter((item) => item.name !== name)];
-      writeHistory(history);
+      if (recordsBackend === "api") {
+        try {
+          await requestRecordsApi("save", { record });
+          remoteHistory = history;
+        } catch (error) {
+          writeLocalHistory(history);
+          recordsBackend = "local";
+          setDbStatus(`NAS 儲存失敗，已暫存本機：${error.message}`);
+          refreshHistorySelect();
+          return;
+        }
+      } else {
+        writeLocalHistory(history);
+      }
+      refreshHistorySelect();
       byId("historySelect").value = record.id;
-      setDbStatus(`已儲存：${name}`);
+      setDbStatus(recordsBackend === "api" ? `已儲存到 NAS：${name}` : `已儲存在本機：${name}`);
     }
 
     function loadSelectedRecord() {
@@ -1160,7 +1239,9 @@
         const byIdMap = new Map([...incoming, ...history.records].map((record) => [record.id || `import-${Math.random()}`, record]));
         history.records = Array.from(byIdMap.values()).filter((record) => record?.data);
         writeHistory(history);
-        setDbStatus(`已匯入 ${incoming.length} 筆歷史紀錄。`);
+        setDbStatus(recordsBackend === "api"
+          ? `已匯入 ${incoming.length} 筆歷史紀錄並同步到 NAS。`
+          : `已匯入 ${incoming.length} 筆歷史紀錄。`);
       } catch {
         setDbStatus("匯入失敗，請確認是本工具匯出的 JSON 歷史檔。");
       } finally {
@@ -1892,6 +1973,7 @@
         setTimeout(async () => {
           await loadAuthStatus();
           unlockApp();
+          await loadRemoteRecords();
           submit.classList.remove("success");
           configureAuthScreen();
         }, 450);
@@ -1917,6 +1999,7 @@
       configureAuthScreen();
       if (authStatus.configured && authStatus.authenticated) {
         unlockApp();
+        await loadRemoteRecords();
       }
     }
 
