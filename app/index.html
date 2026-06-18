@@ -766,6 +766,23 @@
       gap: 14px;
     }
 
+    .auth-loading {
+      display: none;
+      margin-top: 8px;
+      color: #b9cad9;
+      font-size: 13px;
+      line-height: 1.7;
+      text-align: center;
+    }
+
+    body.auth-checking .auth-form {
+      display: none;
+    }
+
+    body.auth-checking .auth-loading {
+      display: block;
+    }
+
     .auth-form label {
       color: #e8f2fb;
       font-size: 13px;
@@ -1224,10 +1241,11 @@
           <circle cx="60" cy="60" r="47" fill="none" stroke="rgba(209,239,255,.42)" stroke-width="5"/>
         </svg>
         <div>
-          <h1 id="authTitle">護理師甄選系統登入</h1>
-          <p id="authSubtitle">請使用 Firebase 帳號登入後再使用複試時間分配表。</p>
+          <h1 id="authTitle">正在確認登入狀態</h1>
+          <p id="authSubtitle">請稍候，系統正在確認 Firebase 登入資訊。</p>
         </div>
       </div>
+      <div class="auth-loading" id="authLoading">若已登入，系統會自動回到目前操作步驟。</div>
       <form class="auth-form" id="authForm">
         <label>電子郵件
           <input id="authUser" autocomplete="email" placeholder="請輸入電子郵件">
@@ -1594,7 +1612,7 @@
     </section>
   </main>
 
-  <script type="module" src="firebase-auth-bridge.js?v=20260618-firebase-config"></script>
+  <script type="module" src="firebase-auth-bridge.js?v=20260619-auth-checking"></script>
   <script>
     const fields = [
       "title", "dateText", "examLocationText", "groupText", "startTime", "candidateGap",
@@ -2528,6 +2546,44 @@
       authStatus = firebaseAuth.getStatus();
     }
 
+    function markInternalNavigation() {
+      try {
+        sessionStorage.setItem("nursingExamInternalNavigation", String(Date.now()));
+      } catch {
+        // Navigation still works if sessionStorage is unavailable.
+      }
+    }
+
+    function consumeRecentInternalNavigation() {
+      try {
+        const startedAt = Number(sessionStorage.getItem("nursingExamInternalNavigation") || 0);
+        sessionStorage.removeItem("nursingExamInternalNavigation");
+        return startedAt > 0 && Date.now() - startedAt < 10000;
+      } catch {
+        return false;
+      }
+    }
+
+    async function waitForInternalNavigationAuth() {
+      const firebaseAuth = window.NursingExamFirebaseAuth;
+      if (!firebaseAuth?.onChange) return;
+      await new Promise((resolve) => {
+        let done = false;
+        let unsubscribe = null;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          unsubscribe?.();
+          resolve();
+        };
+        unsubscribe = firebaseAuth.onChange((state) => {
+          if (state.user || state.error) finish();
+        });
+        setTimeout(finish, 2500);
+      });
+      await loadAuthStatus();
+    }
+
     function setAuthMessage(message, isError = true) {
       const messageBox = byId("authMessage");
       messageBox.textContent = message;
@@ -2614,6 +2670,10 @@
 
     async function initAuth() {
       await loadAuthStatus();
+      const fromInternalNavigation = consumeRecentInternalNavigation();
+      if (fromInternalNavigation && authStatus.configured && !authStatus.authenticated) {
+        await waitForInternalNavigationAuth();
+      }
       configureAuthScreen();
       if (authStatus.configured && authStatus.authenticated) {
         unlockApp();
@@ -2726,6 +2786,9 @@
       window.location.hash = "workflowOutput";
       setWorkflowStep("7");
       byId("printBtn").click();
+    });
+    document.querySelectorAll('a[href^="grouping.html"], a[href^="index.html"]').forEach((link) => {
+      link.addEventListener("click", markInternalNavigation);
     });
     window.addEventListener("hashchange", syncWorkflowFromLocation);
     window.addEventListener("storage", (event) => {
