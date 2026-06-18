@@ -1483,6 +1483,18 @@
           <p>尚未完成複試分組名冊時，可先用成績 S 型分組產生組別與准考證資料，再回到這裡貼入本組名單。</p>
           <a class="nav-link" href="grouping.html">開啟成績 S 型分組</a>
         </div>
+        <div class="grid">
+          <label class="full">從 S 型分組結果匯入
+            <select id="groupingImportSelect">
+              <option value="">尚無可匯入的分組結果</option>
+            </select>
+            <span class="hint" id="groupingImportStatus">請先在「S 型分組」步驟產生分組結果。</span>
+          </label>
+        </div>
+        <div class="actions" style="position: static; margin: 10px 0 0; padding: 0; border: 0; background: transparent;">
+          <button id="importGroupingBtn" type="button">匯入所選組別</button>
+          <button class="ghost" id="refreshGroupingBtn" type="button">重新整理分組結果</button>
+        </div>
         <label>一行一筆，或以逗號、空白分隔
           <textarea id="tickets">01120019
 01120026
@@ -1608,6 +1620,7 @@
     const defaultStampSrc = reportStamp.getAttribute("src");
     const historyKey = "nursingExamScheduleHistoryV1";
     const draftKey = "nursingExamScheduleDraftV1";
+    const latestGroupingKey = "nursingExamLatestGroupingResultV1";
     let authBackend = "firebase";
     let authStatus = { configured: false, authenticated: false };
     const recordType = "schedule";
@@ -1889,6 +1902,56 @@
         .split(/[\s,，、;；]+/)
         .map((item) => item.trim())
         .filter(Boolean);
+    }
+
+    function readLatestGroupingResult() {
+      try {
+        const result = JSON.parse(localStorage.getItem(latestGroupingKey) || "null");
+        if (!result || !Array.isArray(result.groups)) return null;
+        return result;
+      } catch {
+        return null;
+      }
+    }
+
+    function groupImportOptionLabel(group) {
+      const tickets = Array.isArray(group.tickets) ? group.tickets : [];
+      const preview = tickets.slice(0, 3).join("、");
+      const suffix = tickets.length > 3 ? "..." : "";
+      return `${group.group || "未命名組別"}（${tickets.length}人${preview ? `：${preview}${suffix}` : ""}）`;
+    }
+
+    function refreshGroupingImportOptions() {
+      const select = byId("groupingImportSelect");
+      const status = byId("groupingImportStatus");
+      const result = readLatestGroupingResult();
+      if (!result?.groups?.length) {
+        select.innerHTML = '<option value="">尚無可匯入的分組結果</option>';
+        byId("importGroupingBtn").disabled = true;
+        status.textContent = "請先在「S 型分組」步驟產生分組結果。";
+        return;
+      }
+      select.innerHTML = result.groups
+        .map((group) => `<option value="${escapeHtml(String(group.groupIndex))}">${escapeHtml(groupImportOptionLabel(group))}</option>`)
+        .join("");
+      byId("importGroupingBtn").disabled = false;
+      status.textContent = `已讀取最近分組結果：${result.savedAtText || "剛剛產生"}。`;
+    }
+
+    function importSelectedGrouping() {
+      const result = readLatestGroupingResult();
+      const selectedIndex = byId("groupingImportSelect").value;
+      const group = result?.groups?.find((item) => String(item.groupIndex) === selectedIndex);
+      const tickets = Array.isArray(group?.tickets) ? group.tickets.filter(Boolean) : [];
+      if (!group || !tickets.length) {
+        setDbStatus("尚未選擇可匯入的分組名單。");
+        return;
+      }
+      byId("tickets").value = tickets.join("\n");
+      if (group.group) byId("groupText").value = group.group;
+      render();
+      saveDraft();
+      setDbStatus(`已匯入 ${group.group || "所選組別"}，共 ${tickets.length} 位考生。`);
     }
 
     function parseBreakRules(value) {
@@ -2619,6 +2682,8 @@
     byId("exportHistoryBtn").addEventListener("click", exportHistory);
     byId("importHistoryBtn").addEventListener("click", () => byId("historyFileInput").click());
     byId("historyFileInput").addEventListener("change", (event) => importHistory(event.target.files[0]));
+    byId("importGroupingBtn").addEventListener("click", importSelectedGrouping);
+    byId("refreshGroupingBtn").addEventListener("click", refreshGroupingImportOptions);
     byId("authForm").addEventListener("submit", handleAuthSubmit);
     byId("authTogglePass").addEventListener("click", toggleAuthPassword);
     byId("logoutBtn").addEventListener("click", lockApp);
@@ -2630,9 +2695,13 @@
       byId("printBtn").click();
     });
     window.addEventListener("hashchange", syncWorkflowFromLocation);
+    window.addEventListener("storage", (event) => {
+      if (event.key === latestGroupingKey) refreshGroupingImportOptions();
+    });
 
     refreshHistorySelect();
     loadDraft();
+    refreshGroupingImportOptions();
     updateStampView();
     render();
     syncWorkflowFromLocation();

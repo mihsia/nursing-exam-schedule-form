@@ -1211,6 +1211,7 @@
     const byId = (id) => document.getElementById(id);
     const historyKey = "nursingExamGroupingHistoryV1";
     const draftKey = "nursingExamGroupingDraftV1";
+    const latestGroupingKey = "nursingExamLatestGroupingResultV1";
     const defaultReportTitle = "宜蘭縣115學年度學校新進護理師聯合甄選複試分組一覽表";
     let authBackend = "firebase";
     let authStatus = { configured: false, authenticated: false };
@@ -2019,6 +2020,31 @@
         .map(([groupIndex, items]) => ({ groupIndex, items }));
     }
 
+    function saveLatestGroupingResult(rows) {
+      if (!rows.length) return;
+      const groups = groupedRowsForReport(rows).map(({ groupIndex, items }) => ({
+        groupIndex,
+        group: items[0]?.group || groupLabel(groupIndex),
+        tickets: items.map((row) => row.ticket),
+        rows: items.map((row) => ({
+          ticket: row.ticket,
+          name: row.name || "",
+          score: row.score,
+          rank: row.rank
+        }))
+      }));
+      localStorage.setItem(latestGroupingKey, JSON.stringify({
+        version: 1,
+        savedAt: new Date().toISOString(),
+        savedAtText: new Date().toLocaleString("zh-TW"),
+        reportTitle: reportTitle(),
+        groupCount: byId("groupCount").value,
+        finalistCount: byId("finalistCount").value,
+        labelMode: byId("labelMode").value,
+        groups
+      }));
+    }
+
     function reportCell(row, sequence) {
       if (!row) {
         return '<td></td><td></td><td></td><td></td><td></td>';
@@ -2418,7 +2444,9 @@
         const groupCount = getGroupCount();
         const finalistCount = getFinalistCount(importedRows.length);
         renderFinalistReport(finalistRowsFromRows(importedRows));
-        renderResults(assignGroups(importedRows, groupCount, finalistCount));
+        const groupedRows = assignGroups(importedRows, groupCount, finalistCount);
+        renderResults(groupedRows);
+        saveLatestGroupingResult(groupedRows);
       } catch (error) {
         renderFinalistReport([]);
         renderResults([]);
