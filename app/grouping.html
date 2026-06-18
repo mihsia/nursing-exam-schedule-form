@@ -278,6 +278,80 @@
       --step-border: #b7d5f4;
     }
 
+    .project-select {
+      border-color: #d3dfed;
+      background: #fff;
+      color: var(--ink);
+      min-height: 52px;
+      padding: 0 16px;
+      font-size: 19px;
+    }
+
+    .workflow {
+      padding: 30px 12px 24px;
+    }
+
+    .step {
+      grid-template-columns: 48px 1fr;
+      gap: 14px;
+      min-height: 70px;
+      padding: 10px 12px;
+      align-items: start;
+      border-radius: 8px;
+    }
+
+    .step + .step {
+      margin-top: 16px;
+    }
+
+    .step:not(:last-child)::after {
+      left: 35px;
+      bottom: -20px;
+      width: 3px;
+      height: 22px;
+      background: #d9e4ef;
+    }
+
+    .step-badge {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      font-size: 18px;
+      background: #f0f5fa;
+      border-color: #d8e3ef;
+      color: #66758b;
+    }
+
+    .step.done .step-badge {
+      background: #eaf8f4;
+      border-color: #a9dfd3;
+      color: #128272;
+    }
+
+    .step.active {
+      min-height: 78px;
+      padding: 13px 18px;
+      background: #eaf4ff;
+      border-color: #b8d9fb;
+      box-shadow: none;
+    }
+
+    .step.active .step-badge {
+      background: #2878bd;
+      border-color: #2878bd;
+      color: #fff;
+    }
+
+    .step-title {
+      font-size: 18px;
+      line-height: 1.28;
+    }
+
+    .step-meta {
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
     .step-title,
     .step-meta {
       display: block;
@@ -285,14 +359,15 @@
 
     .step-title {
       margin-bottom: 4px;
+      font-size: 18px;
       font-weight: 800;
       line-height: 1.25;
     }
 
     .step-meta {
       color: var(--muted);
-      font-size: 12px;
-      line-height: 1.35;
+      font-size: 13px;
+      line-height: 1.45;
     }
 
     .sidebar-footer {
@@ -894,44 +969,58 @@
       <div class="project-switcher">
         <label>本次甄選作業</label>
         <div class="project-select">
-          <span>初試名單與 S 型分組</span>
+          <span>115 年護理師甄選</span>
           <span aria-hidden="true">⌄</span>
         </div>
       </div>
       <nav class="workflow">
-        <a class="step active is-grouping" href="#workflowImport">
+        <a class="step done" href="index.html#workflowBasic">
           <span class="step-badge">1</span>
           <span>
-            <span class="step-title">初試名單與 S 型分組</span>
-            <span class="step-meta">先產生複試名單、分組名冊與分組報表。</span>
+            <span class="step-title">基本設定</span>
+            <span class="step-meta">日期、考場、戳章、報表抬頭</span>
           </span>
         </a>
-        <a class="step is-history" href="#workflowHistory">
+        <a class="step done" href="#workflowImport">
           <span class="step-badge">2</span>
           <span>
-            <span class="step-title">載入或儲存本次設定</span>
-            <span class="step-meta">沿用歷史檔，減少每次重填。</span>
+            <span class="step-title">匯入初試成績</span>
+            <span class="step-meta">准考證、姓名、成績欄位已辨識</span>
           </span>
         </a>
-        <a class="step is-settings" href="#workflowSettings">
+        <a class="step done" href="#workflowRun">
           <span class="step-badge">3</span>
           <span>
-            <span class="step-title">設定複試人數與組數</span>
-            <span class="step-meta">先取複試名單，再依組數 S 型分配。</span>
+            <span class="step-title">複試名單</span>
+            <span class="step-meta">依成績排序，取前 N 名</span>
           </span>
         </a>
-        <a class="step is-report" href="#workflowRun">
+        <a class="step active" href="#workflowRun">
           <span class="step-badge">4</span>
           <span>
-            <span class="step-title">產出分組與報表</span>
-            <span class="step-meta">右側預覽分組結果與一覽表。</span>
+            <span class="step-title">S 型分組</span>
+            <span class="step-meta">A-Z 組別與名冊報表</span>
           </span>
         </a>
-        <a class="step done is-time" href="index.html">
+        <a class="step" href="index.html#workflowTime">
           <span class="step-badge">5</span>
           <span>
-            <span class="step-title">帶入複試時間分配表</span>
-            <span class="step-meta">完成分組後回到時間流程設定。</span>
+            <span class="step-title">時間流程</span>
+            <span class="step-meta">每時段間隔與休息時間</span>
+          </span>
+        </a>
+        <a class="step" href="#workflowRun">
+          <span class="step-badge">6</span>
+          <span>
+            <span class="step-title">預覽報表</span>
+            <span class="step-meta">時間表、分組一覽、可複試名單</span>
+          </span>
+        </a>
+        <a class="step" href="#workflowRun">
+          <span class="step-badge">7</span>
+          <span>
+            <span class="step-title">匯出與歸檔</span>
+            <span class="step-meta">PDF、DOCX、XLSX、CSV</span>
           </span>
         </a>
       </nav>

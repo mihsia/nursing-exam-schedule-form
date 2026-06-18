@@ -297,9 +297,84 @@
       --step-border: #efc4b5;
     }
 
+    .project-select {
+      border-color: #d3dfed;
+      background: #fff;
+      color: var(--ink);
+      min-height: 52px;
+      padding: 0 16px;
+      font-size: 19px;
+    }
+
+    .workflow {
+      padding: 30px 12px 24px;
+    }
+
+    .step {
+      grid-template-columns: 48px 1fr;
+      gap: 14px;
+      min-height: 70px;
+      padding: 10px 12px;
+      align-items: start;
+      border-radius: 8px;
+    }
+
+    .step + .step {
+      margin-top: 16px;
+    }
+
+    .step:not(:last-child)::after {
+      left: 35px;
+      bottom: -20px;
+      width: 3px;
+      height: 22px;
+      background: #d9e4ef;
+    }
+
+    .step-badge {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      font-size: 18px;
+      background: #f0f5fa;
+      border-color: #d8e3ef;
+      color: #66758b;
+    }
+
+    .step.done .step-badge {
+      background: #eaf8f4;
+      border-color: #a9dfd3;
+      color: #128272;
+    }
+
+    .step.active {
+      min-height: 78px;
+      padding: 13px 18px;
+      background: #eaf4ff;
+      border-color: #b8d9fb;
+      box-shadow: none;
+    }
+
+    .step.active .step-badge {
+      background: #2878bd;
+      border-color: #2878bd;
+      color: #fff;
+    }
+
+    .step-title {
+      font-size: 18px;
+      line-height: 1.28;
+    }
+
+    .step-meta {
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
     .step-title {
       display: block;
       margin-bottom: 4px;
+      font-size: 18px;
       font-weight: 800;
       line-height: 1.25;
     }
@@ -307,8 +382,8 @@
     .step-meta {
       display: block;
       color: var(--muted);
-      font-size: 12px;
-      line-height: 1.35;
+      font-size: 13px;
+      line-height: 1.45;
     }
 
     .sidebar-footer {
@@ -1177,51 +1252,58 @@
       <div class="project-switcher">
         <label>本次甄選作業</label>
         <div class="project-select">
-          <span>複試時間分配表</span>
+          <span>115 年護理師甄選</span>
           <span aria-hidden="true">⌄</span>
         </div>
       </div>
       <nav class="workflow">
-        <a class="step done is-grouping" href="grouping.html">
+        <a class="step done" href="#workflowBasic">
           <span class="step-badge">1</span>
           <span>
-            <span class="step-title">初試名單與 S 型分組</span>
-            <span class="step-meta">先產生複試名單、分組名冊與分組報表。</span>
+            <span class="step-title">基本設定</span>
+            <span class="step-meta">日期、考場、戳章、報表抬頭</span>
           </span>
         </a>
-        <a class="step active is-history" href="#workflowStart">
+        <a class="step done" href="grouping.html#workflowImport">
           <span class="step-badge">2</span>
           <span>
-            <span class="step-title">載入或儲存本次設定</span>
-            <span class="step-meta">沿用歷史檔，減少每次重填。</span>
+            <span class="step-title">匯入初試成績</span>
+            <span class="step-meta">准考證、姓名、成績欄位已辨識</span>
           </span>
         </a>
-        <a class="step is-basic" href="#workflowBasic">
+        <a class="step done" href="grouping.html#workflowRun">
           <span class="step-badge">3</span>
           <span>
-            <span class="step-title">填寫報表基本資料</span>
-            <span class="step-meta">日期、考場、組別與第一位報到時間。</span>
+            <span class="step-title">複試名單</span>
+            <span class="step-meta">依成績排序，取前 N 名</span>
           </span>
         </a>
-        <a class="step is-tickets" href="#workflowTickets">
+        <a class="step done" href="grouping.html#workflowRun">
           <span class="step-badge">4</span>
           <span>
-            <span class="step-title">貼上本組准考證</span>
-            <span class="step-meta">右側表格會即時更新。</span>
+            <span class="step-title">S 型分組</span>
+            <span class="step-meta">A-Z 組別與名冊報表</span>
           </span>
         </a>
-        <a class="step is-time" href="#workflowTime">
+        <a class="step active" href="#workflowTime">
           <span class="step-badge">5</span>
           <span>
-            <span class="step-title">設定流程間隔</span>
-            <span class="step-meta">依前一階段間隔與各階段長度輸入。</span>
+            <span class="step-title">時間流程</span>
+            <span class="step-meta">每時段間隔與休息時間</span>
           </span>
         </a>
-        <a class="step is-output" href="#workflowOutput">
+        <a class="step" href="#workflowOutput">
           <span class="step-badge">6</span>
           <span>
-            <span class="step-title">預覽並輸出報表</span>
-            <span class="step-meta">確認戳章、休息時間與 A4 版面後匯出。</span>
+            <span class="step-title">預覽報表</span>
+            <span class="step-meta">時間表、分組一覽、可複試名單</span>
+          </span>
+        </a>
+        <a class="step" href="#workflowOutput">
+          <span class="step-badge">7</span>
+          <span>
+            <span class="step-title">匯出與歸檔</span>
+            <span class="step-meta">PDF、DOCX、XLSX、CSV</span>
           </span>
         </a>
       </nav>
