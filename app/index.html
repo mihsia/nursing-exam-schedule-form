@@ -1026,6 +1026,7 @@
     </section>
   </main>
 
+  <script type="module" src="firebase-auth-bridge.js"></script>
   <script>
     const fields = [
       "title", "dateText", "examLocationText", "groupText", "startTime", "candidateGap",
@@ -1064,10 +1065,7 @@
     const defaultStampSrc = reportStamp.getAttribute("src");
     const historyKey = "nursingExamScheduleHistoryV1";
     const draftKey = "nursingExamScheduleDraftV1";
-    const authKey = "nursingExamScheduleAuthV1";
-    const authSessionKey = "nursingExamScheduleSessionV1";
-    let authMode = "login";
-    let authBackend = "local";
+    let authBackend = "firebase";
     let authStatus = { configured: false, authenticated: false };
     const recordType = "schedule";
     let recordsBackend = "local";
@@ -1872,68 +1870,32 @@
       URL.revokeObjectURL(url);
     }
 
-    function bytesToBase64(bytes) {
-      let binary = "";
-      bytes.forEach((byte) => {
-        binary += String.fromCharCode(byte);
+    function waitForFirebaseAuthBridge() {
+      if (window.NursingExamFirebaseAuth) return Promise.resolve(window.NursingExamFirebaseAuth);
+      return new Promise((resolve) => {
+        const startedAt = Date.now();
+        const timer = setInterval(() => {
+          if (window.NursingExamFirebaseAuth || Date.now() - startedAt > 3000) {
+            clearInterval(timer);
+            resolve(window.NursingExamFirebaseAuth || null);
+          }
+        }, 30);
       });
-      return btoa(binary);
-    }
-
-    function base64ToBytes(value) {
-      const binary = atob(value);
-      const bytes = new Uint8Array(binary.length);
-      for (let index = 0; index < binary.length; index += 1) {
-        bytes[index] = binary.charCodeAt(index);
-      }
-      return bytes;
-    }
-
-    async function passwordHash(password, saltBytes) {
-      const passwordBytes = new TextEncoder().encode(password);
-      const key = await crypto.subtle.importKey("raw", passwordBytes, "PBKDF2", false, ["deriveBits"]);
-      const bits = await crypto.subtle.deriveBits({
-        name: "PBKDF2",
-        salt: saltBytes,
-        iterations: 160000,
-        hash: "SHA-256"
-      }, key, 256);
-      return bytesToBase64(new Uint8Array(bits));
-    }
-
-    function readAuthConfig() {
-      try {
-        return JSON.parse(localStorage.getItem(authKey) || "null");
-      } catch {
-        return null;
-      }
-    }
-
-    async function requestAuthApi(action, payload = null) {
-      const response = await fetch(`api/auth.php?action=${encodeURIComponent(action)}`, {
-        method: payload ? "POST" : "GET",
-        headers: payload ? { "Content-Type": "application/json" } : {},
-        credentials: "same-origin",
-        body: payload ? JSON.stringify(payload) : undefined
-      });
-      const data = await response.json();
-      if (!response.ok || data.ok === false) {
-        throw new Error(data.message || "登入服務暫時無法使用。");
-      }
-      return data;
     }
 
     async function loadAuthStatus() {
-      try {
-        authStatus = await requestAuthApi("status");
-        authBackend = "api";
-      } catch {
-        authBackend = "local";
+      const firebaseAuth = await waitForFirebaseAuthBridge();
+      if (!firebaseAuth) {
         authStatus = {
-          configured: Boolean(readAuthConfig()),
-          authenticated: sessionStorage.getItem(authSessionKey) === "ok"
+          configured: false,
+          authenticated: false,
+          message: "Firebase 登入模組尚未載入。"
         };
+        return;
       }
+      await firebaseAuth.ready;
+      authBackend = "firebase";
+      authStatus = firebaseAuth.getStatus();
     }
 
     function setAuthMessage(message, isError = true) {
@@ -1955,94 +1917,44 @@
     }
 
     async function lockApp() {
-      if (authBackend === "api") {
-        try {
-          await requestAuthApi("logout", {});
-        } catch {
-          // Local UI lock still matters even if the network logout call fails.
-        }
+      try {
+        await window.NursingExamFirebaseAuth?.signOut();
+      } catch {
+        // Local UI lock still matters even if Firebase logout is temporarily unavailable.
       }
-      sessionStorage.removeItem(authSessionKey);
       document.body.classList.add("auth-locked");
       document.body.classList.remove("auth-ready");
       initAuth();
     }
 
     function configureAuthScreen() {
-      const hasConfig = authBackend === "api" ? authStatus.configured : Boolean(readAuthConfig());
-      authMode = hasConfig ? "login" : "setup";
-      byId("authTitle").textContent = hasConfig ? "護理師甄選系統登入" : "首次設定管理帳密";
-      byId("authSubtitle").textContent = hasConfig
-        ? "請先登入後再使用複試時間分配表。"
-        : authBackend === "api"
-          ? "請建立資料庫管理帳號與密碼，完成後即可進入系統。"
-          : "請建立本機管理帳號與密碼，完成後即可進入系統。";
-      byId("authSubmit").textContent = hasConfig ? "登入" : "建立並登入";
-      byId("authConfirmWrap").style.display = hasConfig ? "none" : "grid";
-      byId("authPass").autocomplete = hasConfig ? "current-password" : "new-password";
-      byId("authNote").textContent = authBackend === "api"
-        ? "登入狀態由 NAS 後端 session 管理，帳號密碼保存在 MariaDB。"
-        : hasConfig
-          ? "登入狀態只保留在目前瀏覽器分頁；關閉分頁後需重新登入。"
-          : "密碼會以瀏覽器加鹽雜湊保存。若忘記密碼，需清除本網站瀏覽器資料後重新設定。";
-      setAuthMessage("");
+      byId("authTitle").textContent = "護理師甄選系統登入";
+      byId("authSubtitle").textContent = "請使用 Firebase 帳號登入後再使用複試時間分配表。";
+      byId("authUser").placeholder = "請輸入電子郵件";
+      byId("authUser").autocomplete = "email";
+      byId("authSubmit").textContent = "登入";
+      byId("authConfirmWrap").style.display = "none";
+      byId("authPass").autocomplete = "current-password";
+      byId("authNote").textContent = "登入由 Firebase Authentication 管理；請先在 Firebase Console 建立使用者帳號。";
+      setAuthMessage(authStatus.configured ? "" : authStatus.message || "尚未設定 Firebase 專案資訊。");
     }
 
     async function handleAuthSubmit(event) {
       event.preventDefault();
-      if (authBackend === "local" && !crypto?.subtle) {
-        setAuthMessage("此瀏覽器不支援安全雜湊，請改用最新版 Chrome、Edge 或 Safari。");
-        shakeAuthCard();
-        return;
-      }
-
-      const username = byId("authUser").value.trim();
+      const email = byId("authUser").value.trim();
       const password = byId("authPass").value;
-      const confirm = byId("authConfirm").value;
       const submit = byId("authSubmit");
       submit.disabled = true;
 
       try {
-        if (!username || !password) {
-          throw new Error("請輸入帳號與密碼。");
-        }
-
-        if (authMode === "setup") {
-          if (password.length < 8) throw new Error("密碼至少需要 8 個字元。");
-          if (password !== confirm) throw new Error("兩次輸入的密碼不一致。");
-          if (authBackend === "api") {
-            await requestAuthApi("setup", { username, password });
-          } else {
-            const salt = crypto.getRandomValues(new Uint8Array(16));
-            const hash = await passwordHash(password, salt);
-            localStorage.setItem(authKey, JSON.stringify({
-              username,
-              salt: bytesToBase64(salt),
-              hash,
-              createdAt: new Date().toISOString()
-            }));
-          }
-        } else {
-          if (authBackend === "api") {
-            await requestAuthApi("login", { username, password });
-          } else {
-            const config = readAuthConfig();
-            if (!config || username !== config.username) {
-              throw new Error("帳號或密碼不正確。");
-            }
-            const hash = await passwordHash(password, base64ToBytes(config.salt));
-            if (hash !== config.hash) {
-              throw new Error("帳號或密碼不正確。");
-            }
-          }
-        }
-
-        sessionStorage.setItem(authSessionKey, "ok");
+        if (!authStatus.configured) throw new Error(authStatus.message || "尚未設定 Firebase 專案資訊。");
+        if (!email || !password) throw new Error("請輸入電子郵件與密碼。");
+        await window.NursingExamFirebaseAuth.signIn(email, password);
+        await loadAuthStatus();
         submit.classList.add("success");
         submit.textContent = "登入成功";
         setAuthMessage("登入成功，正在進入系統。", false);
         setTimeout(async () => {
-          await loadAuthStatus();
           unlockApp();
           await loadRemoteRecords();
           submit.classList.remove("success");
@@ -2058,10 +1970,8 @@
 
     function toggleAuthPassword() {
       const input = byId("authPass");
-      const confirm = byId("authConfirm");
       const nextType = input.type === "password" ? "text" : "password";
       input.type = nextType;
-      confirm.type = nextType;
       byId("authTogglePass").textContent = nextType === "password" ? "顯示" : "隱藏";
     }
 
