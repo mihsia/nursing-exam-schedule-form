@@ -638,6 +638,8 @@
         <button class="primary" id="runBtn" type="button">產生 S 型分組</button>
         <button class="success" id="exportBtn" type="button" disabled>匯出 CSV</button>
         <button id="exportFullBtn" type="button" disabled>匯出含成績 CSV</button>
+        <button id="exportScoreRosterCsvBtn" type="button" disabled>匯出分組成績名冊 CSV</button>
+        <button id="exportScoreRosterXlsxBtn" type="button" disabled>匯出分組成績名冊 XLSX</button>
         <button id="exportReportPdfBtn" type="button" disabled>下載複試分組一覽表 PDF</button>
         <button id="exportReportXlsxBtn" type="button" disabled>下載複試分組一覽表 XLSX</button>
       </div>
@@ -1485,6 +1487,8 @@
       assignedRows = rows;
       byId("exportBtn").disabled = !rows.length;
       byId("exportFullBtn").disabled = !rows.length;
+      byId("exportScoreRosterCsvBtn").disabled = !rows.length;
+      byId("exportScoreRosterXlsxBtn").disabled = !rows.length;
       byId("exportReportPdfBtn").disabled = !rows.length;
       byId("exportReportXlsxBtn").disabled = !rows.length;
       const outputRows = sortedForOutput(rows);
@@ -1725,6 +1729,71 @@
       ]);
     }
 
+    function buildScoreRosterAoA(rows) {
+      return [
+        ["組別", "准考證號", "姓名", "成績"],
+        ...sortedForOutput(rows).map((row) => [row.group, row.ticket, row.name, row.score])
+      ];
+    }
+
+    function buildScoreRosterWorksheetXml(rows) {
+      const aoa = buildScoreRosterAoA(rows);
+      const sheetRows = aoa.map((row, rowIndex) => {
+        const rowNumber = rowIndex + 1;
+        const styleIndex = rowNumber === 1 ? 3 : 1;
+        const cells = row.map((value, columnIndex) => xlsxCell(rowNumber, columnIndex + 1, value, styleIndex)).join("");
+        return `<row r="${rowNumber}" ht="22" customHeight="1">${cells}</row>`;
+      }).join("");
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <dimension ref="A1:D${aoa.length}"/>
+  <sheetViews><sheetView workbookViewId="0"/></sheetViews>
+  <sheetFormatPr defaultRowHeight="18"/>
+  <cols>
+    <col min="1" max="1" width="10" customWidth="1"/>
+    <col min="2" max="2" width="14" customWidth="1"/>
+    <col min="3" max="3" width="14" customWidth="1"/>
+    <col min="4" max="4" width="10" customWidth="1"/>
+  </cols>
+  <sheetData>${sheetRows}</sheetData>
+  <autoFilter ref="A1:D${aoa.length}"/>
+  <pageMargins left="0.3" right="0.3" top="0.35" bottom="0.35" header="0" footer="0"/>
+  <pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/>
+</worksheet>`;
+    }
+
+    function buildScoreRosterXlsx(rows) {
+      const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>`;
+      const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+      const workbookXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets><sheet name="分組成績名冊" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`;
+      const workbookRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+      return createZip([
+        { name: "[Content_Types].xml", data: contentTypes },
+        { name: "_rels/.rels", data: rootRels },
+        { name: "xl/workbook.xml", data: workbookXml },
+        { name: "xl/_rels/workbook.xml.rels", data: workbookRels },
+        { name: "xl/styles.xml", data: buildXlsxStylesXml() },
+        { name: "xl/worksheets/sheet1.xml", data: buildScoreRosterWorksheetXml(rows) }
+      ]);
+    }
+
     async function loadRowsFromInput() {
       const file = byId("fileInput").files[0];
       const pasted = byId("pasteData").value.trim();
@@ -1776,6 +1845,18 @@
       downloadBlob(blob, includeScores ? "S型分組_含成績.csv" : "S型分組_組別准考證.csv");
     }
 
+    function csvTextFromRows(rows) {
+      return rows
+        .map((items) => items.map((item) => `"${String(item ?? "").replaceAll('"', '""')}"`).join(","))
+        .join("\n");
+    }
+
+    function exportScoreRosterCsv() {
+      if (!assignedRows.length) return;
+      const blob = new Blob(["\ufeff" + csvTextFromRows(buildScoreRosterAoA(assignedRows))], { type: "text/csv;charset=utf-8" });
+      downloadBlob(blob, "S型分組_組別准考證姓名成績.csv");
+    }
+
     function downloadBlob(blob, filename) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -1799,9 +1880,19 @@
       downloadBlob(blob, "複試分組一覽表.xlsx");
     }
 
+    function exportScoreRosterXlsx() {
+      if (!assignedRows.length) return;
+      const blob = new Blob([buildScoreRosterXlsx(assignedRows)], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      });
+      downloadBlob(blob, "S型分組_組別准考證姓名成績.xlsx");
+    }
+
     byId("runBtn").addEventListener("click", runGrouping);
     byId("exportBtn").addEventListener("click", () => exportCsv(false));
     byId("exportFullBtn").addEventListener("click", () => exportCsv(true));
+    byId("exportScoreRosterCsvBtn").addEventListener("click", exportScoreRosterCsv);
+    byId("exportScoreRosterXlsxBtn").addEventListener("click", exportScoreRosterXlsx);
     byId("exportReportPdfBtn").addEventListener("click", exportReportPdf);
     byId("exportReportXlsxBtn").addEventListener("click", exportReportXlsx);
     byId("pasteData").addEventListener("input", saveDraft);
