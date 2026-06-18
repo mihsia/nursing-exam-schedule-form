@@ -16,18 +16,39 @@ function require_login(): int
 
 function ensure_records_table(PDO $pdo): void
 {
-    $pdo->exec(
-        "CREATE TABLE IF NOT EXISTS app_records (
-            id VARCHAR(80) NOT NULL PRIMARY KEY,
-            user_id INT UNSIGNED NOT NULL,
-            type VARCHAR(40) NOT NULL,
-            name VARCHAR(160) NOT NULL,
-            data LONGTEXT NOT NULL,
-            saved_at DATETIME NOT NULL,
-            updated_at DATETIME NULL DEFAULT NULL,
-            INDEX idx_app_records_user_type (user_id, type)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
-    );
+    try {
+        $pdo->query('SELECT 1 FROM app_records LIMIT 1');
+        return;
+    } catch (PDOException $error) {
+        $code = (int)($error->errorInfo[1] ?? 0);
+        if ($code !== 1146) {
+            throw $error;
+        }
+    }
+
+    try {
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS app_records (
+                id VARCHAR(80) NOT NULL PRIMARY KEY,
+                user_id INT UNSIGNED NOT NULL,
+                type VARCHAR(40) NOT NULL,
+                name VARCHAR(160) NOT NULL,
+                data LONGTEXT NOT NULL,
+                saved_at DATETIME NOT NULL,
+                updated_at DATETIME NULL DEFAULT NULL,
+                INDEX idx_app_records_user_type (user_id, type)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+    } catch (PDOException $error) {
+        $code = (int)($error->errorInfo[1] ?? 0);
+        if ($code === 1142) {
+            json_response([
+                'ok' => false,
+                'message' => '資料表 app_records 尚未建立，且目前資料庫帳號沒有 CREATE 權限。請先用 phpMyAdmin 管理員帳號執行 api/fix_app_records.sql，再回到系統重新整理。',
+            ], 500);
+        }
+        throw $error;
+    }
 }
 
 function clean_type(string $type): string
