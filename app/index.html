@@ -342,9 +342,9 @@
     }
 
     .step.done .step-badge {
-      background: #eaf8f4;
-      border-color: #a9dfd3;
-      color: #128272;
+      background: #f0f5fa;
+      border-color: #d8e3ef;
+      color: #66758b;
     }
 
     .step.active {
@@ -384,6 +384,10 @@
       color: var(--muted);
       font-size: 13px;
       line-height: 1.45;
+    }
+
+    [data-workflow-content][hidden] {
+      display: none !important;
     }
 
     .sidebar-footer {
@@ -1257,49 +1261,49 @@
         </div>
       </div>
       <nav class="workflow">
-        <a class="step done" href="#workflowBasic">
+        <a class="step" href="#workflowBasic" data-workflow-step="1">
           <span class="step-badge">1</span>
           <span>
             <span class="step-title">基本設定</span>
             <span class="step-meta">日期、考場、戳章、報表抬頭</span>
           </span>
         </a>
-        <a class="step done" href="grouping.html#workflowImport">
+        <a class="step" href="grouping.html#workflowImport" data-workflow-step="2">
           <span class="step-badge">2</span>
           <span>
             <span class="step-title">匯入初試成績</span>
             <span class="step-meta">准考證、姓名、成績欄位已辨識</span>
           </span>
         </a>
-        <a class="step done" href="grouping.html#workflowRun">
+        <a class="step" href="grouping.html#workflowFinalists" data-workflow-step="3">
           <span class="step-badge">3</span>
           <span>
             <span class="step-title">複試名單</span>
             <span class="step-meta">依成績排序，取前 N 名</span>
           </span>
         </a>
-        <a class="step done" href="grouping.html#workflowRun">
+        <a class="step" href="grouping.html#workflowGrouping" data-workflow-step="4">
           <span class="step-badge">4</span>
           <span>
             <span class="step-title">S 型分組</span>
             <span class="step-meta">A-Z 組別與名冊報表</span>
           </span>
         </a>
-        <a class="step active" href="#workflowTime">
+        <a class="step active" href="#workflowTime" data-workflow-step="5">
           <span class="step-badge">5</span>
           <span>
             <span class="step-title">時間流程</span>
             <span class="step-meta">每時段間隔與休息時間</span>
           </span>
         </a>
-        <a class="step" href="#workflowOutput">
+        <a class="step" href="#workflowPreview" data-workflow-step="6">
           <span class="step-badge">6</span>
           <span>
             <span class="step-title">預覽報表</span>
             <span class="step-meta">時間表、分組一覽、可複試名單</span>
           </span>
         </a>
-        <a class="step" href="#workflowOutput">
+        <a class="step" href="#workflowOutput" data-workflow-step="7">
           <span class="step-badge">7</span>
           <span>
             <span class="step-title">匯出與歸檔</span>
@@ -1323,7 +1327,7 @@
 
       <div class="error" id="errorBox"></div>
 
-      <fieldset class="flow-start" id="workflowStart">
+      <fieldset class="flow-start" id="workflowStart" data-workflow-content="1">
         <legend>快速開始與保存</legend>
         <p class="section-note">第一次可直接往下填；之後可從歷史紀錄載入，完成後再儲存設定。</p>
         <div class="grid">
@@ -1346,8 +1350,8 @@
         <div class="status" id="dbStatus"></div>
       </fieldset>
 
-      <fieldset class="flow-basic" id="workflowBasic">
-        <legend>1. 基本資料</legend>
+      <fieldset class="flow-basic" id="workflowBasic" data-workflow-content="1">
+        <legend>基本資料</legend>
         <p class="section-note">先設定報表標題、日期、組別與第一位報到時間。</p>
         <div class="grid">
           <label class="full">標題
@@ -1371,8 +1375,8 @@
         </div>
       </fieldset>
 
-      <fieldset class="flow-room" id="workflowRoom">
-        <legend>5. 欄位地點</legend>
+      <fieldset class="flow-room" id="workflowRoom" data-workflow-content="1">
+        <legend>考場與欄位地點</legend>
         <p class="section-note">填入報到、實作與口試地點，會同步到報表欄位。</p>
         <div class="grid">
           <label>報到地點
@@ -1393,8 +1397,8 @@
         </div>
       </fieldset>
 
-      <fieldset class="flow-stamp" id="workflowStamp">
-        <legend>7. 報表戳章</legend>
+      <fieldset class="flow-stamp" id="workflowStamp" data-workflow-content="1">
+        <legend>甄選圓戳章</legend>
         <p class="section-note">最後決定是否顯示戳章；上傳後會跟著儲存設定保存。</p>
         <div class="grid">
           <label class="full">上傳甄選圓戳章
@@ -1413,8 +1417,8 @@
         </div>
       </fieldset>
 
-      <fieldset class="flow-time" id="workflowTime">
-        <legend>3. 時間設定</legend>
+      <fieldset class="flow-time" id="workflowTime" data-workflow-content="5">
+        <legend>流程時間設定</legend>
         <p class="section-note">依流程順序填入「與前一階段相隔幾分鐘」，不用換算成報到後的總分鐘數。</p>
         <div class="grid">
           <label>報到後幾分鐘進行引導抽題
@@ -1450,8 +1454,8 @@
         </div>
       </fieldset>
 
-      <fieldset class="flow-break" id="workflowBreak">
-        <legend>4. 休息時間</legend>
+      <fieldset class="flow-break" id="workflowBreak" data-workflow-content="5">
+        <legend>休息時間</legend>
         <p class="section-note">需要中場或午休時再設定；不需要可留空。</p>
         <div class="grid">
           <label class="full">休息規則
@@ -1463,8 +1467,8 @@
         </div>
       </fieldset>
 
-      <fieldset class="flow-tickets" id="workflowTickets">
-        <legend>2. 准考證號碼</legend>
+      <fieldset class="flow-tickets" id="workflowTickets" data-workflow-content="5">
+        <legend>本組准考證名單</legend>
         <p class="section-note">貼上本組考生名單，右側會立即更新報表。</p>
         <div class="step-tool">
           <p>尚未完成複試分組名冊時，可先用成績 S 型分組產生組別與准考證資料，再回到這裡貼入本組名單。</p>
@@ -1498,8 +1502,8 @@
         </label>
       </fieldset>
 
-      <fieldset class="flow-notes" id="workflowNotes">
-        <legend>6. 頁尾備註</legend>
+      <fieldset class="flow-notes" id="workflowNotes" data-workflow-content="1">
+        <legend>頁尾備註</legend>
         <p class="section-note">補充試務中心、流程或其他公告文字。</p>
         <label>備註
           <textarea id="notes">※試務中心：羅東國中--明德樓(3樓)816教室
@@ -1507,7 +1511,7 @@
         </label>
       </fieldset>
 
-      <div class="actions flow-output" id="workflowOutput" aria-label="輸出操作">
+      <div class="actions flow-output" id="workflowOutput" aria-label="輸出操作" data-workflow-content="7">
         <button class="primary" id="printBtn" type="button">列印 / 另存 PDF</button>
         <button id="wordBtn" type="button">匯出 Word（DOCX）</button>
         <button id="csvBtn" type="button">匯出 CSV</button>
@@ -1515,7 +1519,7 @@
       </div>
     </section>
 
-    <section class="preview-wrap" aria-label="預覽">
+    <section class="preview-wrap" id="workflowPreview" aria-label="預覽" data-workflow-content="6 7">
       <article class="sheet" id="sheet">
         <h2 class="doc-title" id="docTitle"></h2>
         <div class="doc-meta">
@@ -2514,6 +2518,39 @@
       }
     }
 
+    const workflowHashToStep = {
+      workflowStart: "1",
+      workflowBasic: "1",
+      workflowRoom: "1",
+      workflowStamp: "1",
+      workflowTime: "5",
+      workflowBreak: "5",
+      workflowTickets: "5",
+      workflowPreview: "6",
+      workflowOutput: "7"
+    };
+
+    function workflowStepFromLocation() {
+      const hash = window.location.hash.replace("#", "");
+      return workflowHashToStep[hash] || "5";
+    }
+
+    function setWorkflowStep(step) {
+      const activeStep = String(step);
+      document.body.dataset.workflowStep = activeStep;
+      document.querySelectorAll(".workflow .step").forEach((item) => {
+        item.classList.toggle("active", item.dataset.workflowStep === activeStep);
+      });
+      document.querySelectorAll("[data-workflow-content]").forEach((item) => {
+        const steps = item.dataset.workflowContent.split(/\s+/);
+        item.hidden = !steps.includes(activeStep);
+      });
+    }
+
+    function syncWorkflowFromLocation() {
+      setWorkflowStep(workflowStepFromLocation());
+    }
+
     function loadSample() {
       byId("title").value = "宜蘭縣112學年度學校新進護理師聯合甄選複試時間分配表";
       byId("dateText").value = "112年12月10日";
@@ -2570,12 +2607,18 @@
     byId("logoutBtn").addEventListener("click", lockApp);
     byId("topLogoutBtn").addEventListener("click", lockApp);
     byId("sideSaveBtn").addEventListener("click", () => byId("saveRecordBtn").click());
-    byId("sidePrintBtn").addEventListener("click", () => byId("printBtn").click());
+    byId("sidePrintBtn").addEventListener("click", () => {
+      window.location.hash = "workflowOutput";
+      setWorkflowStep("7");
+      byId("printBtn").click();
+    });
+    window.addEventListener("hashchange", syncWorkflowFromLocation);
 
     refreshHistorySelect();
     loadDraft();
     updateStampView();
     render();
+    syncWorkflowFromLocation();
     initAuth();
   </script>
 </body>

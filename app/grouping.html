@@ -323,9 +323,9 @@
     }
 
     .step.done .step-badge {
-      background: #eaf8f4;
-      border-color: #a9dfd3;
-      color: #128272;
+      background: #f0f5fa;
+      border-color: #d8e3ef;
+      color: #66758b;
     }
 
     .step.active {
@@ -368,6 +368,10 @@
       color: var(--muted);
       font-size: 13px;
       line-height: 1.45;
+    }
+
+    [data-workflow-content][hidden] {
+      display: none !important;
     }
 
     .sidebar-footer {
@@ -974,49 +978,49 @@
         </div>
       </div>
       <nav class="workflow">
-        <a class="step done" href="index.html#workflowBasic">
+        <a class="step" href="index.html#workflowBasic" data-workflow-step="1">
           <span class="step-badge">1</span>
           <span>
             <span class="step-title">基本設定</span>
             <span class="step-meta">日期、考場、戳章、報表抬頭</span>
           </span>
         </a>
-        <a class="step done" href="#workflowImport">
+        <a class="step" href="#workflowImport" data-workflow-step="2">
           <span class="step-badge">2</span>
           <span>
             <span class="step-title">匯入初試成績</span>
             <span class="step-meta">准考證、姓名、成績欄位已辨識</span>
           </span>
         </a>
-        <a class="step done" href="#workflowRun">
+        <a class="step" href="#workflowFinalists" data-workflow-step="3">
           <span class="step-badge">3</span>
           <span>
             <span class="step-title">複試名單</span>
             <span class="step-meta">依成績排序，取前 N 名</span>
           </span>
         </a>
-        <a class="step active" href="#workflowRun">
+        <a class="step active" href="#workflowGrouping" data-workflow-step="4">
           <span class="step-badge">4</span>
           <span>
             <span class="step-title">S 型分組</span>
             <span class="step-meta">A-Z 組別與名冊報表</span>
           </span>
         </a>
-        <a class="step" href="index.html#workflowTime">
+        <a class="step" href="index.html#workflowTime" data-workflow-step="5">
           <span class="step-badge">5</span>
           <span>
             <span class="step-title">時間流程</span>
             <span class="step-meta">每時段間隔與休息時間</span>
           </span>
         </a>
-        <a class="step" href="#workflowRun">
+        <a class="step" href="#workflowPreview" data-workflow-step="6">
           <span class="step-badge">6</span>
           <span>
             <span class="step-title">預覽報表</span>
             <span class="step-meta">時間表、分組一覽、可複試名單</span>
           </span>
         </a>
-        <a class="step" href="#workflowRun">
+        <a class="step" href="#workflowExport" data-workflow-step="7">
           <span class="step-badge">7</span>
           <span>
             <span class="step-title">匯出與歸檔</span>
@@ -1040,7 +1044,7 @@
 
       <div class="error" id="errorBox"></div>
 
-      <fieldset class="flow-history" id="workflowHistory">
+      <fieldset class="flow-history" id="workflowHistory" data-workflow-content="7">
         <legend>資料庫與歷史檔</legend>
         <div class="grid">
           <label>儲存名稱
@@ -1062,7 +1066,7 @@
         <div class="status" id="dbStatus"></div>
       </fieldset>
 
-      <fieldset class="flow-import" id="workflowImport">
+      <fieldset class="flow-import" id="workflowImport" data-workflow-content="2">
         <legend>資料來源</legend>
         <label>匯入 Excel / CSV
           <input id="fileInput" type="file" accept=".xlsx,.csv,.tsv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
@@ -1074,15 +1078,21 @@
         </label>
       </fieldset>
 
-      <fieldset class="flow-settings" id="workflowSettings">
-        <legend>分組設定</legend>
+      <fieldset class="flow-finalist-settings" id="workflowFinalists" data-workflow-content="3">
+        <legend>複試名單設定</legend>
         <div class="grid">
-          <label>組數
-            <input id="groupCount" type="number" min="1" max="26" value="4">
-          </label>
           <label>預定進入複試人數
             <input id="finalistCount" type="number" min="1" placeholder="留空代表全部">
             <span class="hint">依成績由高到低只取前 N 名後再分組。</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="flow-settings" id="workflowGrouping" data-workflow-content="4">
+        <legend>S 型分組設定</legend>
+        <div class="grid">
+          <label>組數
+            <input id="groupCount" type="number" min="1" max="26" value="4">
           </label>
           <label>組別格式
             <select id="labelMode">
@@ -1095,7 +1105,7 @@
         </div>
       </fieldset>
 
-      <fieldset class="flow-report">
+      <fieldset class="flow-report" data-workflow-content="4">
         <legend>報表設定</legend>
         <label>複試分組一覽表抬頭
           <input id="reportTitle" value="宜蘭縣115學年度學校新進護理師聯合甄選複試分組一覽表">
@@ -1103,7 +1113,7 @@
         </label>
       </fieldset>
 
-      <fieldset class="flow-finalists">
+      <fieldset class="flow-finalists" data-workflow-content="3">
         <legend>分組前：可進入複試名單</legend>
         <p>依初試成績由高到低，先取「預定進入複試人數」產出名單，再進入 S 型分組。</p>
         <div class="actions">
@@ -1112,8 +1122,11 @@
         </div>
       </fieldset>
 
-      <div class="actions flow-run" id="workflowRun">
+      <div class="actions flow-run" id="workflowRun" data-workflow-content="4">
         <button class="primary" id="runBtn" type="button">產生 S 型分組</button>
+      </div>
+
+      <div class="actions flow-export" id="workflowExport" data-workflow-content="7">
         <button class="success" id="exportBtn" type="button" disabled>匯出 CSV</button>
         <button id="exportFullBtn" type="button" disabled>匯出含成績 CSV</button>
         <button id="exportScoreRosterCsvBtn" type="button" disabled>匯出分組成績名冊 CSV</button>
@@ -1123,7 +1136,7 @@
       </div>
     </section>
 
-    <section class="preview panel">
+    <section class="preview panel" id="workflowPreview" data-workflow-content="6 7">
       <div class="summary">
         <div class="metric"><b id="totalCount">0</b><span>分組考生</span></div>
         <div class="metric"><b id="groupMetric">0</b><span>組數</span></div>
@@ -1311,6 +1324,37 @@
         unlockApp();
         await loadRemoteRecords();
       }
+    }
+
+    const workflowHashToStep = {
+      workflowImport: "2",
+      workflowFinalists: "3",
+      workflowGrouping: "4",
+      workflowRun: "4",
+      workflowPreview: "6",
+      workflowExport: "7",
+      workflowHistory: "7"
+    };
+
+    function workflowStepFromLocation() {
+      const hash = window.location.hash.replace("#", "");
+      return workflowHashToStep[hash] || "4";
+    }
+
+    function setWorkflowStep(step) {
+      const activeStep = String(step);
+      document.body.dataset.workflowStep = activeStep;
+      document.querySelectorAll(".workflow .step").forEach((item) => {
+        item.classList.toggle("active", item.dataset.workflowStep === activeStep);
+      });
+      document.querySelectorAll("[data-workflow-content]").forEach((item) => {
+        const steps = item.dataset.workflowContent.split(/\s+/);
+        item.hidden = !steps.includes(activeStep);
+      });
+    }
+
+    function syncWorkflowFromLocation() {
+      setWorkflowStep(workflowStepFromLocation());
     }
 
     function settingData() {
@@ -2487,10 +2531,12 @@
     byId("topLogoutBtn").addEventListener("click", lockApp);
     byId("sideRunBtn").addEventListener("click", () => byId("runBtn").click());
     byId("sideTimeBtn").addEventListener("click", () => {
-      window.location.href = "index.html";
+      window.location.href = "index.html#workflowTime";
     });
+    window.addEventListener("hashchange", syncWorkflowFromLocation);
     refreshHistorySelect();
     loadDraft();
+    syncWorkflowFromLocation();
     initAuth();
   </script>
 </body>
