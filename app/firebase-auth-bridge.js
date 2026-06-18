@@ -71,6 +71,7 @@ if (!missingConfig) {
       const {
         browserLocalPersistence,
         getAuth,
+        getIdToken,
         onAuthStateChanged,
         setPersistence,
         signInWithEmailAndPassword,
@@ -92,6 +93,12 @@ if (!missingConfig) {
 
       bridge.signOut = async () => {
         await signOut(auth);
+      };
+
+      bridge.getIdToken = async () => {
+        const user = auth.currentUser;
+        if (!user) throw new Error("尚未登入 Firebase。");
+        return getIdToken(user);
       };
 
       await new Promise((resolve) => {

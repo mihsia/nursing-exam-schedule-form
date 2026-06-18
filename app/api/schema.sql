@@ -7,13 +7,14 @@ CREATE TABLE IF NOT EXISTS users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS app_records (
-  id VARCHAR(80) NOT NULL PRIMARY KEY,
+  id VARCHAR(80) NOT NULL,
   user_id INT UNSIGNED NOT NULL,
   type VARCHAR(40) NOT NULL,
   name VARCHAR(160) NOT NULL,
   data LONGTEXT NOT NULL,
   saved_at DATETIME NOT NULL,
   updated_at DATETIME NULL DEFAULT NULL,
+  PRIMARY KEY (user_id, id),
   INDEX idx_app_records_user_type (user_id, type),
   CONSTRAINT fk_app_records_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

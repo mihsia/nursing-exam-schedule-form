@@ -1211,7 +1211,7 @@
     const byId = (id) => document.getElementById(id);
     const historyKey = "nursingExamGroupingHistoryV1";
     const draftKey = "nursingExamGroupingDraftV1";
-    const latestGroupingKey = "nursingExamLatestGroupingResultV1";
+    const latestGroupingBaseKey = "nursingExamLatestGroupingResultV1";
     const defaultReportTitle = "宜蘭縣115學年度學校新進護理師聯合甄選複試分組一覽表";
     let authBackend = "firebase";
     let authStatus = { configured: false, authenticated: false };
@@ -1398,13 +1398,23 @@
 
     async function requestRecordsApi(action, payload = null, query = {}) {
       const params = new URLSearchParams({ action, ...query });
+      const headers = payload ? { "Content-Type": "application/json" } : {};
+      if (window.NursingExamFirebaseAuth?.getIdToken) {
+        headers.Authorization = `Bearer ${await window.NursingExamFirebaseAuth.getIdToken()}`;
+      }
       const response = await fetch(`api/records.php?${params.toString()}`, {
         method: payload ? "POST" : "GET",
-        headers: payload ? { "Content-Type": "application/json" } : {},
+        headers,
         credentials: "same-origin",
         body: payload ? JSON.stringify(payload) : undefined
       });
-      const data = await response.json();
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error("資料庫 API 不可用。");
+      }
       if (!response.ok || data.ok === false) {
         throw new Error(data.message || "資料庫服務暫時無法使用。");
       }
@@ -1429,7 +1439,7 @@
     }
 
     async function loadRemoteRecords() {
-      if (authBackend !== "api" || !authStatus.authenticated) return;
+      if (!authStatus.authenticated) return;
       try {
         const [history, draft] = await Promise.all([
           requestRecordsApi("list", null, { type: recordType }),
@@ -2022,6 +2032,7 @@
 
     function saveLatestGroupingResult(rows) {
       if (!rows.length) return;
+      const namespacedKey = `${latestGroupingBaseKey}:${authStatus.username || "anonymous"}`;
       const groups = groupedRowsForReport(rows).map(({ groupIndex, items }) => ({
         groupIndex,
         group: items[0]?.group || groupLabel(groupIndex),
@@ -2033,7 +2044,7 @@
           rank: row.rank
         }))
       }));
-      localStorage.setItem(latestGroupingKey, JSON.stringify({
+      localStorage.setItem(namespacedKey, JSON.stringify({
         version: 1,
         savedAt: new Date().toISOString(),
         savedAtText: new Date().toLocaleString("zh-TW"),

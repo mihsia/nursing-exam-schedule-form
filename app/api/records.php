@@ -6,10 +6,121 @@ require __DIR__ . '/db.php';
 header('Cache-Control: no-store');
 app_start_session();
 
-function require_login(): int
+function base64url_decode_json(string $value): ?array
+{
+    $decoded = base64_decode(strtr($value, '-_', '+/') . str_repeat('=', (4 - strlen($value) % 4) % 4), true);
+    if ($decoded === false) {
+        return null;
+    }
+    $data = json_decode($decoded, true);
+    return is_array($data) ? $data : null;
+}
+
+function authorization_bearer_token(): string
+{
+    $header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+    if ($header === '' && function_exists('apache_request_headers')) {
+        $headers = apache_request_headers();
+        $header = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+    }
+    if (preg_match('/^Bearer\s+(.+)$/i', trim((string)$header), $matches)) {
+        return trim($matches[1]);
+    }
+    return '';
+}
+
+function firebase_certs(): array
+{
+    $cacheFile = sys_get_temp_dir() . '/nursing_exam_firebase_certs.json';
+    if (is_file($cacheFile) && filemtime($cacheFile) > time() - 3600) {
+        $cached = json_decode((string)file_get_contents($cacheFile), true);
+        if (is_array($cached)) {
+            return $cached;
+        }
+    }
+
+    $json = @file_get_contents('https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com');
+    if ($json === false) {
+        return [];
+    }
+    $certs = json_decode($json, true);
+    if (!is_array($certs)) {
+        return [];
+    }
+    @file_put_contents($cacheFile, json_encode($certs));
+    return $certs;
+}
+
+function verify_firebase_token(string $token, string $projectId): ?array
+{
+    if ($projectId === '' || !function_exists('openssl_verify')) {
+        return null;
+    }
+
+    $parts = explode('.', $token);
+    if (count($parts) !== 3) {
+        return null;
+    }
+    [$encodedHeader, $encodedPayload, $encodedSignature] = $parts;
+    $header = base64url_decode_json($encodedHeader);
+    $payload = base64url_decode_json($encodedPayload);
+    $signature = base64_decode(strtr($encodedSignature, '-_', '+/') . str_repeat('=', (4 - strlen($encodedSignature) % 4) % 4), true);
+    if (!$header || !$payload || $signature === false || ($header['alg'] ?? '') !== 'RS256') {
+        return null;
+    }
+
+    $cert = firebase_certs()[(string)($header['kid'] ?? '')] ?? null;
+    if (!$cert || openssl_verify($encodedHeader . '.' . $encodedPayload, $signature, $cert, OPENSSL_ALGO_SHA256) !== 1) {
+        return null;
+    }
+
+    $now = time();
+    $issuer = 'https://securetoken.google.com/' . $projectId;
+    if (($payload['aud'] ?? '') !== $projectId || ($payload['iss'] ?? '') !== $issuer) {
+        return null;
+    }
+    if (empty($payload['sub']) || strlen((string)$payload['sub']) > 128) {
+        return null;
+    }
+    if ((int)($payload['exp'] ?? 0) <= $now || (int)($payload['iat'] ?? 0) > $now + 300) {
+        return null;
+    }
+
+    return $payload;
+}
+
+function firebase_user_id(PDO $pdo, array $claims): int
+{
+    $username = 'firebase:' . hash('sha256', (string)$claims['sub']);
+    $stmt = $pdo->prepare('SELECT id FROM users WHERE username = ? LIMIT 1');
+    $stmt->execute([$username]);
+    $id = $stmt->fetchColumn();
+    if ($id !== false) {
+        return (int)$id;
+    }
+
+    $stmt = $pdo->prepare('INSERT IGNORE INTO users (username, password_hash, created_at) VALUES (?, ?, NOW())');
+    $stmt->execute([$username, 'firebase-auth-managed']);
+
+    $stmt = $pdo->prepare('SELECT id FROM users WHERE username = ? LIMIT 1');
+    $stmt->execute([$username]);
+    $id = $stmt->fetchColumn();
+    if ($id === false) {
+        throw new RuntimeException('Unable to create Firebase user mapping.');
+    }
+    return (int)$id;
+}
+
+function require_login(PDO $pdo): int
 {
     if (empty($_SESSION['user_id'])) {
-        json_response(['ok' => false, 'message' => '請先登入。'], 401);
+        $config = app_config();
+        $token = authorization_bearer_token();
+        $claims = $token ? verify_firebase_token($token, (string)($config['firebase_project_id'] ?? '')) : null;
+        if (!$claims) {
+            json_response(['ok' => false, 'message' => '請先登入。'], 401);
+        }
+        return firebase_user_id($pdo, $claims);
     }
     return (int)$_SESSION['user_id'];
 }
@@ -29,13 +140,14 @@ function ensure_records_table(PDO $pdo): void
     try {
         $pdo->exec(
             "CREATE TABLE IF NOT EXISTS app_records (
-                id VARCHAR(80) NOT NULL PRIMARY KEY,
+                id VARCHAR(80) NOT NULL,
                 user_id INT UNSIGNED NOT NULL,
                 type VARCHAR(40) NOT NULL,
                 name VARCHAR(160) NOT NULL,
                 data LONGTEXT NOT NULL,
                 saved_at DATETIME NOT NULL,
                 updated_at DATETIME NULL DEFAULT NULL,
+                PRIMARY KEY (user_id, id),
                 INDEX idx_app_records_user_type (user_id, type)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
@@ -81,7 +193,7 @@ function normalize_record(array $record): array
 try {
     $pdo = app_pdo();
     ensure_records_table($pdo);
-    $userId = require_login();
+    $userId = require_login($pdo);
     $action = $_GET['action'] ?? $_POST['action'] ?? 'list';
 
     if ($action === 'list') {
@@ -127,6 +239,12 @@ try {
         $data = $record['data'] ?? null;
         if ($id === '' || $name === '' || !is_array($data)) {
             json_response(['ok' => false, 'message' => '紀錄資料不完整。'], 422);
+        }
+        $ownerStmt = $pdo->prepare('SELECT user_id FROM app_records WHERE id = ? LIMIT 1');
+        $ownerStmt->execute([$id]);
+        $ownerId = $ownerStmt->fetchColumn();
+        if ($ownerId !== false && (int)$ownerId !== $userId) {
+            json_response(['ok' => false, 'message' => '無權更新此紀錄。'], 403);
         }
         $savedAt = (string)($record['savedAt'] ?? date('Y-m-d H:i:s'));
         $savedAtSql = date('Y-m-d H:i:s', strtotime($savedAt) ?: time());
@@ -183,5 +301,6 @@ try {
 
     json_response(['ok' => false, 'message' => '未知的操作。'], 404);
 } catch (Throwable $error) {
-    json_response(['ok' => false, 'message' => '伺服器錯誤：' . $error->getMessage()], 500);
+    error_log((string)$error);
+    json_response(['ok' => false, 'message' => '伺服器暫時無法處理，請稍後再試。'], 500);
 }

@@ -75,5 +75,6 @@ try {
 
     json_response(['ok' => false, 'message' => '未知的操作。'], 404);
 } catch (Throwable $error) {
-    json_response(['ok' => false, 'message' => '伺服器錯誤：' . $error->getMessage()], 500);
+    error_log((string)$error);
+    json_response(['ok' => false, 'message' => '伺服器暫時無法處理，請稍後再試。'], 500);
 }

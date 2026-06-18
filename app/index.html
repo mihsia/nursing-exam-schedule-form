@@ -1620,7 +1620,7 @@
     const defaultStampSrc = reportStamp.getAttribute("src");
     const historyKey = "nursingExamScheduleHistoryV1";
     const draftKey = "nursingExamScheduleDraftV1";
-    const latestGroupingKey = "nursingExamLatestGroupingResultV1";
+    const latestGroupingBaseKey = "nursingExamLatestGroupingResultV1";
     let authBackend = "firebase";
     let authStatus = { configured: false, authenticated: false };
     const recordType = "schedule";
@@ -1681,13 +1681,23 @@
 
     async function requestRecordsApi(action, payload = null, query = {}) {
       const params = new URLSearchParams({ action, ...query });
+      const headers = payload ? { "Content-Type": "application/json" } : {};
+      if (window.NursingExamFirebaseAuth?.getIdToken) {
+        headers.Authorization = `Bearer ${await window.NursingExamFirebaseAuth.getIdToken()}`;
+      }
       const response = await fetch(`api/records.php?${params.toString()}`, {
         method: payload ? "POST" : "GET",
-        headers: payload ? { "Content-Type": "application/json" } : {},
+        headers,
         credentials: "same-origin",
         body: payload ? JSON.stringify(payload) : undefined
       });
-      const data = await response.json();
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error("資料庫 API 不可用。");
+      }
       if (!response.ok || data.ok === false) {
         throw new Error(data.message || "資料庫服務暫時無法使用。");
       }
@@ -1712,7 +1722,7 @@
     }
 
     async function loadRemoteRecords() {
-      if (authBackend !== "api" || !authStatus.authenticated) return;
+      if (!authStatus.authenticated) return;
       try {
         const [history, draft] = await Promise.all([
           requestRecordsApi("list", null, { type: recordType }),
@@ -1906,7 +1916,8 @@
 
     function readLatestGroupingResult() {
       try {
-        const result = JSON.parse(localStorage.getItem(latestGroupingKey) || "null");
+        const namespacedKey = `${latestGroupingBaseKey}:${authStatus.username || "anonymous"}`;
+        const result = JSON.parse(localStorage.getItem(namespacedKey) || localStorage.getItem(latestGroupingBaseKey) || "null");
         if (!result || !Array.isArray(result.groups)) return null;
         return result;
       } catch {
@@ -2696,7 +2707,7 @@
     });
     window.addEventListener("hashchange", syncWorkflowFromLocation);
     window.addEventListener("storage", (event) => {
-      if (event.key === latestGroupingKey) refreshGroupingImportOptions();
+      if (event.key?.startsWith(latestGroupingBaseKey)) refreshGroupingImportOptions();
     });
 
     refreshHistorySelect();
