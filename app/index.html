@@ -189,9 +189,10 @@
       gap: 12px;
       min-height: 46px;
       padding: 0 12px;
-      border: 1px solid #c9d6e5;
+      border: 1px solid #a8c7ea;
       border-radius: 7px;
-      background: #fff;
+      background: linear-gradient(135deg, #eef6ff 0%, #fff 74%);
+      color: #174579;
       font-weight: 700;
     }
 
@@ -201,6 +202,9 @@
     }
 
     .step {
+      --step-accent: #64748b;
+      --step-soft: #f1f5f9;
+      --step-border: #d7e1ee;
       display: grid;
       grid-template-columns: 34px 1fr;
       gap: 11px;
@@ -223,7 +227,7 @@
       bottom: -7px;
       width: 2px;
       height: 10px;
-      background: #d5deeb;
+      background: color-mix(in srgb, var(--step-accent) 22%, #d5deeb);
     }
 
     .step-badge {
@@ -231,29 +235,66 @@
       height: 34px;
       display: grid;
       place-items: center;
-      border: 1px solid #d7e1ee;
+      border: 1px solid var(--step-border);
       border-radius: 8px;
-      background: #eef3f8;
-      color: var(--muted);
+      background: var(--step-soft);
+      color: color-mix(in srgb, var(--step-accent) 70%, var(--muted));
       font-size: 13px;
       font-weight: 800;
     }
 
     .step.done .step-badge {
-      background: #eaf8f4;
-      border-color: #b8e3d9;
-      color: var(--green);
+      background: var(--step-soft);
+      border-color: color-mix(in srgb, var(--step-accent) 34%, #cbd7e6);
+      color: var(--step-accent);
     }
 
     .step.active {
-      background: #edf6ff;
-      border-color: #b7d5f4;
+      background: var(--step-soft);
+      border-color: color-mix(in srgb, var(--step-accent) 34%, #b7d5f4);
+      box-shadow: inset 4px 0 0 var(--step-accent);
     }
 
     .step.active .step-badge {
-      background: var(--blue);
-      border-color: var(--blue);
+      background: var(--step-accent);
+      border-color: var(--step-accent);
       color: #fff;
+    }
+
+    .step.is-grouping {
+      --step-accent: #128272;
+      --step-soft: #eaf8f4;
+      --step-border: #b8e3d9;
+    }
+
+    .step.is-history {
+      --step-accent: #205493;
+      --step-soft: #edf6ff;
+      --step-border: #b7d5f4;
+    }
+
+    .step.is-basic {
+      --step-accent: #2f7d5c;
+      --step-soft: #eef8f3;
+      --step-border: #bfe3d1;
+    }
+
+    .step.is-tickets {
+      --step-accent: #b87913;
+      --step-soft: #fff7e8;
+      --step-border: #f1d49b;
+    }
+
+    .step.is-time {
+      --step-accent: #8b4fb3;
+      --step-soft: #f7f0fb;
+      --step-border: #dcc4ec;
+    }
+
+    .step.is-output {
+      --step-accent: #be5b3b;
+      --step-soft: #fff2ed;
+      --step-border: #efc4b5;
     }
 
     .step-title {
@@ -1141,42 +1182,42 @@
         </div>
       </div>
       <nav class="workflow">
-        <a class="step done" href="grouping.html">
+        <a class="step done is-grouping" href="grouping.html">
           <span class="step-badge">1</span>
           <span>
             <span class="step-title">初試名單與 S 型分組</span>
             <span class="step-meta">先產生複試名單、分組名冊與分組報表。</span>
           </span>
         </a>
-        <a class="step active" href="#workflowStart">
+        <a class="step active is-history" href="#workflowStart">
           <span class="step-badge">2</span>
           <span>
             <span class="step-title">載入或儲存本次設定</span>
             <span class="step-meta">沿用歷史檔，減少每次重填。</span>
           </span>
         </a>
-        <a class="step" href="#workflowBasic">
+        <a class="step is-basic" href="#workflowBasic">
           <span class="step-badge">3</span>
           <span>
             <span class="step-title">填寫報表基本資料</span>
             <span class="step-meta">日期、考場、組別與第一位報到時間。</span>
           </span>
         </a>
-        <a class="step" href="#workflowTickets">
+        <a class="step is-tickets" href="#workflowTickets">
           <span class="step-badge">4</span>
           <span>
             <span class="step-title">貼上本組准考證</span>
             <span class="step-meta">右側表格會即時更新。</span>
           </span>
         </a>
-        <a class="step" href="#workflowTime">
+        <a class="step is-time" href="#workflowTime">
           <span class="step-badge">5</span>
           <span>
             <span class="step-title">設定流程間隔</span>
             <span class="step-meta">依前一階段間隔與各階段長度輸入。</span>
           </span>
         </a>
-        <a class="step" href="#workflowOutput">
+        <a class="step is-output" href="#workflowOutput">
           <span class="step-badge">6</span>
           <span>
             <span class="step-title">預覽並輸出報表</span>

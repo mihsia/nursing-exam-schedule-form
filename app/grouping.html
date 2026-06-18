@@ -176,9 +176,10 @@
       gap: 12px;
       min-height: 46px;
       padding: 0 12px;
-      border: 1px solid #c9d6e5;
+      border: 1px solid #a9dfd3;
       border-radius: 7px;
-      background: #fff;
+      background: linear-gradient(135deg, #eaf8f4 0%, #fff 74%);
+      color: #0f766e;
       font-weight: 700;
     }
 
@@ -188,6 +189,9 @@
     }
 
     .step {
+      --step-accent: #64748b;
+      --step-soft: #f1f5f9;
+      --step-border: #d7e1ee;
       display: grid;
       grid-template-columns: 34px 1fr;
       gap: 11px;
@@ -210,7 +214,7 @@
       bottom: -7px;
       width: 2px;
       height: 10px;
-      background: #d5deeb;
+      background: color-mix(in srgb, var(--step-accent) 22%, #d5deeb);
     }
 
     .step-badge {
@@ -218,29 +222,60 @@
       height: 34px;
       display: grid;
       place-items: center;
-      border: 1px solid #d7e1ee;
+      border: 1px solid var(--step-border);
       border-radius: 8px;
-      background: #eef3f8;
-      color: var(--muted);
+      background: var(--step-soft);
+      color: color-mix(in srgb, var(--step-accent) 70%, var(--muted));
       font-size: 13px;
       font-weight: 800;
     }
 
     .step.done .step-badge {
-      background: #eaf8f4;
-      border-color: #b8e3d9;
-      color: var(--green);
+      background: var(--step-soft);
+      border-color: color-mix(in srgb, var(--step-accent) 34%, #cbd7e6);
+      color: var(--step-accent);
     }
 
     .step.active {
-      background: #edf6ff;
-      border-color: #b7d5f4;
+      background: var(--step-soft);
+      border-color: color-mix(in srgb, var(--step-accent) 34%, #b7d5f4);
+      box-shadow: inset 4px 0 0 var(--step-accent);
     }
 
     .step.active .step-badge {
-      background: var(--blue);
-      border-color: var(--blue);
+      background: var(--step-accent);
+      border-color: var(--step-accent);
       color: #fff;
+    }
+
+    .step.is-grouping {
+      --step-accent: #128272;
+      --step-soft: #eaf8f4;
+      --step-border: #b8e3d9;
+    }
+
+    .step.is-history {
+      --step-accent: #205493;
+      --step-soft: #edf6ff;
+      --step-border: #b7d5f4;
+    }
+
+    .step.is-settings {
+      --step-accent: #8b4fb3;
+      --step-soft: #f7f0fb;
+      --step-border: #dcc4ec;
+    }
+
+    .step.is-report {
+      --step-accent: #b87913;
+      --step-soft: #fff7e8;
+      --step-border: #f1d49b;
+    }
+
+    .step.is-time {
+      --step-accent: #205493;
+      --step-soft: #edf6ff;
+      --step-border: #b7d5f4;
     }
 
     .step-title,
@@ -864,35 +899,35 @@
         </div>
       </div>
       <nav class="workflow">
-        <a class="step active" href="#workflowImport">
+        <a class="step active is-grouping" href="#workflowImport">
           <span class="step-badge">1</span>
           <span>
             <span class="step-title">初試名單與 S 型分組</span>
             <span class="step-meta">先產生複試名單、分組名冊與分組報表。</span>
           </span>
         </a>
-        <a class="step" href="#workflowHistory">
+        <a class="step is-history" href="#workflowHistory">
           <span class="step-badge">2</span>
           <span>
             <span class="step-title">載入或儲存本次設定</span>
             <span class="step-meta">沿用歷史檔，減少每次重填。</span>
           </span>
         </a>
-        <a class="step" href="#workflowSettings">
+        <a class="step is-settings" href="#workflowSettings">
           <span class="step-badge">3</span>
           <span>
             <span class="step-title">設定複試人數與組數</span>
             <span class="step-meta">先取複試名單，再依組數 S 型分配。</span>
           </span>
         </a>
-        <a class="step" href="#workflowRun">
+        <a class="step is-report" href="#workflowRun">
           <span class="step-badge">4</span>
           <span>
             <span class="step-title">產出分組與報表</span>
             <span class="step-meta">右側預覽分組結果與一覽表。</span>
           </span>
         </a>
-        <a class="step done" href="index.html">
+        <a class="step done is-time" href="index.html">
           <span class="step-badge">5</span>
           <span>
             <span class="step-title">帶入複試時間分配表</span>
