@@ -519,6 +519,11 @@
         border: 0;
       }
 
+      body.print-finalists .grouping-report-preview,
+      body.print-grouping-report .finalist-report-preview {
+        display: none;
+      }
+
       @page {
         size: A4 portrait;
         margin: 8mm;
@@ -634,6 +639,15 @@
         </label>
       </fieldset>
 
+      <fieldset>
+        <legend>分組前：可進入複試名單</legend>
+        <p>依初試成績由高到低，先取「預定進入複試人數」產出名單，再進入 S 型分組。</p>
+        <div class="actions">
+          <button id="exportFinalistPdfBtn" type="button">下載複試名單 PDF</button>
+          <button id="exportFinalistXlsxBtn" type="button">下載複試名單 XLSX</button>
+        </div>
+      </fieldset>
+
       <div class="actions">
         <button class="primary" id="runBtn" type="button">產生 S 型分組</button>
         <button class="success" id="exportBtn" type="button" disabled>匯出 CSV</button>
@@ -682,7 +696,18 @@
         </tbody>
       </table>
 
-      <div class="report-preview" aria-label="複試分組一覽表預覽">
+      <div class="report-preview finalist-report-preview" aria-label="可進入複試名單預覽">
+        <h2 id="finalistPreviewTitle">宜蘭縣115學年度學校新進護理師聯合甄選可進入複試名單</h2>
+        <div id="finalistTables">
+          <table class="report-table">
+            <tbody>
+              <tr><td>尚未產生資料</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="report-preview grouping-report-preview" aria-label="複試分組一覽表預覽">
         <h2 id="reportPreviewTitle">宜蘭縣115學年度學校新進護理師聯合甄選複試分組一覽表</h2>
         <div id="reportTables">
           <table class="report-table">
@@ -923,6 +948,7 @@
       });
       importedRows = [];
       assignedRows = [];
+      renderFinalistReport([]);
       renderResults([]);
     }
 
@@ -1529,6 +1555,12 @@
       return byId("reportTitle").value.trim() || defaultReportTitle;
     }
 
+    function finalistReportTitle() {
+      const title = reportTitle();
+      if (title.includes("複試分組一覽表")) return title.replace("複試分組一覽表", "可進入複試名單");
+      return `${title} 可進入複試名單`;
+    }
+
     function reportGroupName(group) {
       return String(group ?? "").replace(/組$/, "");
     }
@@ -1581,6 +1613,48 @@
     function renderReport(rows) {
       byId("reportPreviewTitle").textContent = reportTitle();
       byId("reportTables").innerHTML = buildReportTablesHtml(rows);
+    }
+
+    function finalistRowsFromRows(rows) {
+      const count = getFinalistCount(rows.length);
+      return sortedByScore(rows).slice(0, count).map((row, index) => ({
+        rank: index + 1,
+        ticket: row.ticket,
+        name: row.name || "",
+        score: row.score
+      }));
+    }
+
+    function buildFinalistTablesHtml(rows) {
+      if (!rows.length) {
+        return '<table class="report-table"><tbody><tr><td>尚未產生資料</td></tr></tbody></table>';
+      }
+      const body = rows.map((row) => [
+        "<tr>",
+        `<td>${escapeHtml(row.ticket)}</td>`,
+        `<td class="report-name-cell">${escapeHtml(row.name)}</td>`,
+        `<td>${escapeHtml(row.score)}</td>`,
+        "</tr>"
+      ].join("")).join("");
+      return [
+        '<table class="report-table finalist-table">',
+        '<thead><tr><th>准考證號</th><th>姓名</th><th>分數</th></tr></thead>',
+        `<tbody>${body}</tbody>`,
+        "</table>"
+      ].join("");
+    }
+
+    function renderFinalistReport(rows) {
+      byId("finalistPreviewTitle").textContent = finalistReportTitle();
+      byId("finalistTables").innerHTML = buildFinalistTablesHtml(rows);
+    }
+
+    function renderCurrentFinalistReport() {
+      try {
+        renderFinalistReport(importedRows.length ? finalistRowsFromRows(importedRows) : []);
+      } catch {
+        renderFinalistReport([]);
+      }
     }
 
     function columnName(index) {
@@ -1729,6 +1803,70 @@
       ]);
     }
 
+    function buildFinalistAoA(rows) {
+      return [
+        ["准考證號", "姓名", "分數"],
+        ...rows.map((row) => [row.ticket, row.name, row.score])
+      ];
+    }
+
+    function buildFinalistWorksheetXml(rows) {
+      const aoa = buildFinalistAoA(rows);
+      const sheetRows = aoa.map((row, rowIndex) => {
+        const rowNumber = rowIndex + 1;
+        const styleIndex = rowNumber === 1 ? 3 : 1;
+        const cells = row.map((value, columnIndex) => xlsxCell(rowNumber, columnIndex + 1, value, styleIndex)).join("");
+        return `<row r="${rowNumber}" ht="22" customHeight="1">${cells}</row>`;
+      }).join("");
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <dimension ref="A1:C${aoa.length}"/>
+  <sheetViews><sheetView workbookViewId="0"/></sheetViews>
+  <sheetFormatPr defaultRowHeight="18"/>
+  <cols>
+    <col min="1" max="1" width="16" customWidth="1"/>
+    <col min="2" max="2" width="14" customWidth="1"/>
+    <col min="3" max="3" width="10" customWidth="1"/>
+  </cols>
+  <sheetData>${sheetRows}</sheetData>
+  <autoFilter ref="A1:C${aoa.length}"/>
+  <pageMargins left="0.3" right="0.3" top="0.35" bottom="0.35" header="0" footer="0"/>
+  <pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/>
+</worksheet>`;
+    }
+
+    function buildFinalistXlsx(rows) {
+      const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>`;
+      const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+      const workbookXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets><sheet name="可進入複試名單" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`;
+      const workbookRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+      return createZip([
+        { name: "[Content_Types].xml", data: contentTypes },
+        { name: "_rels/.rels", data: rootRels },
+        { name: "xl/workbook.xml", data: workbookXml },
+        { name: "xl/_rels/workbook.xml.rels", data: workbookRels },
+        { name: "xl/styles.xml", data: buildXlsxStylesXml() },
+        { name: "xl/worksheets/sheet1.xml", data: buildFinalistWorksheetXml(rows) }
+      ]);
+    }
+
     function buildScoreRosterAoA(rows) {
       return [
         ["組別", "准考證號", "姓名", "成績"],
@@ -1806,14 +1944,26 @@
       throw new Error("請先匯入 Excel/CSV，或貼上資料。");
     }
 
+    async function prepareFinalistRows() {
+      showError("");
+      importedRows = await loadRowsFromInput();
+      if (!importedRows.length) throw new Error("沒有可產生複試名單的有效考生資料。");
+      const rows = finalistRowsFromRows(importedRows);
+      renderFinalistReport(rows);
+      saveDraft();
+      return rows;
+    }
+
     async function runGrouping() {
       try {
         showError("");
         importedRows = await loadRowsFromInput();
         if (!importedRows.length) throw new Error("沒有可分組的有效考生資料。");
+        renderFinalistReport(finalistRowsFromRows(importedRows));
         refreshGrouping();
         saveDraft();
       } catch (error) {
+        renderFinalistReport([]);
         renderResults([]);
         showError(error.message || String(error));
       }
@@ -1824,8 +1974,10 @@
         showError("");
         const groupCount = getGroupCount();
         const finalistCount = getFinalistCount(importedRows.length);
+        renderFinalistReport(finalistRowsFromRows(importedRows));
         renderResults(assignGroups(importedRows, groupCount, finalistCount));
       } catch (error) {
+        renderFinalistReport([]);
         renderResults([]);
         showError(error.message || String(error));
       }
@@ -1866,10 +2018,37 @@
       URL.revokeObjectURL(url);
     }
 
+    async function exportFinalistPdf() {
+      try {
+        const rows = await prepareFinalistRows();
+        if (!rows.length) return;
+        document.body.classList.add("print-finalists");
+        window.print();
+        setTimeout(() => document.body.classList.remove("print-finalists"), 600);
+      } catch (error) {
+        showError(error.message || String(error));
+      }
+    }
+
+    async function exportFinalistXlsx() {
+      try {
+        const rows = await prepareFinalistRows();
+        if (!rows.length) return;
+        const blob = new Blob([buildFinalistXlsx(rows)], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        });
+        downloadBlob(blob, "可進入複試名單.xlsx");
+      } catch (error) {
+        showError(error.message || String(error));
+      }
+    }
+
     function exportReportPdf() {
       if (!assignedRows.length) return;
       renderReport(assignedRows);
+      document.body.classList.add("print-grouping-report");
       window.print();
+      setTimeout(() => document.body.classList.remove("print-grouping-report"), 600);
     }
 
     function exportReportXlsx() {
@@ -1893,6 +2072,8 @@
     byId("exportFullBtn").addEventListener("click", () => exportCsv(true));
     byId("exportScoreRosterCsvBtn").addEventListener("click", exportScoreRosterCsv);
     byId("exportScoreRosterXlsxBtn").addEventListener("click", exportScoreRosterXlsx);
+    byId("exportFinalistPdfBtn").addEventListener("click", exportFinalistPdf);
+    byId("exportFinalistXlsxBtn").addEventListener("click", exportFinalistXlsx);
     byId("exportReportPdfBtn").addEventListener("click", exportReportPdf);
     byId("exportReportXlsxBtn").addEventListener("click", exportReportXlsx);
     byId("pasteData").addEventListener("input", saveDraft);
@@ -1910,6 +2091,7 @@
     });
     byId("reportTitle").addEventListener("input", () => {
       saveDraft();
+      renderCurrentFinalistReport();
       renderReport(assignedRows);
     });
     byId("saveRecordBtn").addEventListener("click", saveRecord);
