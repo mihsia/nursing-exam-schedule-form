@@ -759,12 +759,12 @@
         </svg>
         <div>
           <h1 id="authTitle">護理師甄選系統登入</h1>
-          <p id="authSubtitle">請先登入後再使用複試時間分配表。</p>
+          <p id="authSubtitle">請使用 Firebase 帳號登入後再使用複試時間分配表。</p>
         </div>
       </div>
       <form class="auth-form" id="authForm">
-        <label>帳號
-          <input id="authUser" autocomplete="username" placeholder="請輸入帳號">
+        <label>電子郵件
+          <input id="authUser" autocomplete="email" placeholder="請輸入電子郵件">
         </label>
         <div class="password-row">
           <label>密碼
@@ -777,7 +777,7 @@
         </label>
         <button class="auth-submit" id="authSubmit" type="submit">登入</button>
         <div class="auth-message" id="authMessage" role="status" aria-live="polite"></div>
-        <p class="auth-note" id="authNote">登入狀態只保留在目前瀏覽器分頁；關閉分頁後需重新登入。</p>
+        <p class="auth-note" id="authNote">登入由 Firebase Authentication 管理；請先在 Firebase Console 建立使用者帳號。</p>
       </form>
     </div>
   </section>
