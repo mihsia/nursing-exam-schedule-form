@@ -684,8 +684,17 @@
       background-size: 28px 28px, 28px 28px, auto, auto, auto;
     }
 
+    body.auth-checking {
+      min-height: 100vh;
+      overflow: hidden;
+      background: var(--page);
+    }
+
     body.auth-locked .app-topbar,
-    body.auth-locked .shell {
+    body.auth-locked .shell,
+    body.auth-checking .app-topbar,
+    body.auth-checking .shell,
+    body.auth-checking .auth-screen {
       display: none;
     }
 
@@ -1201,7 +1210,7 @@
     }
   </style>
 </head>
-<body class="auth-locked">
+<body class="auth-checking">
   <section class="auth-screen" aria-label="系統登入">
     <div class="auth-card" id="authCard">
       <div class="auth-brand">
@@ -2447,7 +2456,14 @@
 
     function unlockApp() {
       document.body.classList.remove("auth-locked");
+      document.body.classList.remove("auth-checking");
       document.body.classList.add("auth-ready");
+    }
+
+    function showAuthScreen() {
+      document.body.classList.add("auth-locked");
+      document.body.classList.remove("auth-ready");
+      document.body.classList.remove("auth-checking");
     }
 
     async function lockApp() {
@@ -2456,9 +2472,8 @@
       } catch {
         // Local UI lock still matters even if Firebase logout is temporarily unavailable.
       }
-      document.body.classList.add("auth-locked");
-      document.body.classList.remove("auth-ready");
-      initAuth();
+      showAuthScreen();
+      configureAuthScreen();
     }
 
     function configureAuthScreen() {
@@ -2515,6 +2530,8 @@
       if (authStatus.configured && authStatus.authenticated) {
         unlockApp();
         await loadRemoteRecords();
+      } else {
+        showAuthScreen();
       }
     }
 
