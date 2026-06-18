@@ -1,4 +1,4 @@
-import { firebaseAuthOptions, firebaseConfig } from "./firebase-config.js?v=20260618-firebase-config";
+import { firebaseAuthOptions, firebaseConfig } from "./firebase-config.js";
 
 const missingConfig = !firebaseConfig?.apiKey
   || firebaseConfig.apiKey.includes("REPLACE_WITH")

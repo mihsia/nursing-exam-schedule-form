@@ -687,14 +687,19 @@
     body.auth-checking {
       min-height: 100vh;
       overflow: hidden;
-      background: var(--page);
+      background:
+        linear-gradient(rgba(118, 172, 209, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(118, 172, 209, 0.06) 1px, transparent 1px),
+        radial-gradient(circle at 18% 16%, rgba(63, 139, 184, 0.28), transparent 28%),
+        radial-gradient(circle at 86% 12%, rgba(27, 94, 132, 0.24), transparent 30%),
+        linear-gradient(135deg, #071324 0%, #0a1b31 48%, #06101f 100%);
+      background-size: 28px 28px, 28px 28px, auto, auto, auto;
     }
 
     body.auth-locked .app-topbar,
     body.auth-locked .shell,
     body.auth-checking .app-topbar,
-    body.auth-checking .shell,
-    body.auth-checking .auth-screen {
+    body.auth-checking .shell {
       display: none;
     }
 
@@ -1236,8 +1241,8 @@
         <label id="authConfirmWrap" style="display:none;">確認密碼
           <input id="authConfirm" type="password" autocomplete="new-password" placeholder="首次設定請再輸入一次">
         </label>
-        <button class="auth-submit" id="authSubmit" type="submit">登入</button>
-        <div class="auth-message" id="authMessage" role="status" aria-live="polite"></div>
+        <button class="auth-submit" id="authSubmit" type="submit" disabled>登入</button>
+        <div class="auth-message" id="authMessage" role="status" aria-live="polite">正在確認登入狀態...</div>
         <p class="auth-note" id="authNote">登入由 Firebase Authentication 管理；請先在 Firebase Console 建立使用者帳號。</p>
       </form>
     </div>
@@ -1266,7 +1271,6 @@
         <label>本次甄選作業</label>
         <div class="project-select">
           <span>115 年護理師甄選</span>
-          <span aria-hidden="true">⌄</span>
         </div>
       </div>
       <nav class="workflow">
@@ -1530,6 +1534,15 @@
           <textarea id="notes">※試務中心：羅東國中--明德樓(3樓)816教室
 ※複試流程：報到==>實作抽題準備==>實作==>口試</textarea>
         </label>
+      </fieldset>
+
+      <fieldset class="flow-output" id="workflowPreviewGuide" data-workflow-content="6">
+        <legend>預覽確認</legend>
+        <p class="section-note">右側已顯示目前時間分配表，請確認表頭、組別、考生名單、休息時間與戳章位置。</p>
+        <div class="actions" style="position: static; margin: 10px 0 0; padding: 0; border: 0; background: transparent;">
+          <button id="previewBackBtn" type="button">回到時間流程</button>
+          <button class="primary" id="previewOutputBtn" type="button">前往匯出</button>
+        </div>
       </fieldset>
 
       <div class="actions flow-output" id="workflowOutput" aria-label="輸出操作" data-workflow-content="7">
@@ -2556,6 +2569,7 @@
       byId("authUser").placeholder = "請輸入電子郵件";
       byId("authUser").autocomplete = "email";
       byId("authSubmit").textContent = "登入";
+      byId("authSubmit").disabled = false;
       byId("authConfirmWrap").style.display = "none";
       byId("authPass").autocomplete = "current-password";
       byId("authNote").textContent = "登入由 Firebase Authentication 管理；請先在 Firebase Console 建立使用者帳號。";
@@ -2695,6 +2709,14 @@
     byId("historyFileInput").addEventListener("change", (event) => importHistory(event.target.files[0]));
     byId("importGroupingBtn").addEventListener("click", importSelectedGrouping);
     byId("refreshGroupingBtn").addEventListener("click", refreshGroupingImportOptions);
+    byId("previewBackBtn").addEventListener("click", () => {
+      window.location.hash = "workflowTime";
+      setWorkflowStep("5");
+    });
+    byId("previewOutputBtn").addEventListener("click", () => {
+      window.location.hash = "workflowOutput";
+      setWorkflowStep("7");
+    });
     byId("authForm").addEventListener("submit", handleAuthSubmit);
     byId("authTogglePass").addEventListener("click", toggleAuthPassword);
     byId("logoutBtn").addEventListener("click", lockApp);
