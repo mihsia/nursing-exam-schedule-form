@@ -1147,7 +1147,9 @@
       <fieldset class="flow-finalists" data-workflow-content="3">
         <legend>分組前：可進入複試名單</legend>
         <p>依初試成績由高到低，先取「預定進入複試人數」產出名單，再進入 S 型分組。</p>
+        <div class="status" id="finalistStatus">匯入資料後會自動在右側顯示可進入複試名單。</div>
         <div class="actions">
+          <button id="refreshFinalistBtn" type="button">重新產生複試名單</button>
           <button id="exportFinalistPdfBtn" type="button">下載複試名單 PDF</button>
           <button id="exportFinalistXlsxBtn" type="button">下載複試名單 XLSX</button>
         </div>
@@ -1176,7 +1178,7 @@
       </div>
     </section>
 
-    <section class="preview panel" id="workflowPreview" data-workflow-content="6 7">
+    <section class="preview panel" id="workflowPreview" data-workflow-content="3 4 6 7">
       <div class="summary">
         <div class="metric"><b id="totalCount">0</b><span>分組考生</span></div>
         <div class="metric"><b id="groupMetric">0</b><span>組數</span></div>
@@ -1494,6 +1496,9 @@
       assignedRows = compactAssignedRows(data.assignedRows);
       renderFinalistReport(importedRows.length ? finalistRowsFromRows(importedRows) : []);
       renderResults(assignedRows);
+      setFinalistStatus(importedRows.length
+        ? `已載入 ${importedRows.length} 筆考生資料，可進入複試名單已更新。`
+        : "匯入資料後會自動在右側顯示可進入複試名單。");
     }
 
     async function requestRecordsApi(action, payload = null, query = {}) {
@@ -1536,6 +1541,11 @@
         exportedAt: new Date().toISOString(),
         records: history.records.slice(0, 80)
       }));
+    }
+
+    function setFinalistStatus(message) {
+      const status = byId("finalistStatus");
+      if (status) status.textContent = message;
     }
 
     async function loadRemoteRecords() {
@@ -2541,8 +2551,23 @@
       if (!importedRows.length) throw new Error("沒有可產生複試名單的有效考生資料。");
       const rows = finalistRowsFromRows(importedRows);
       renderFinalistReport(rows);
+      setFinalistStatus(`已產生可進入複試名單：${rows.length} 人。`);
       saveDraft();
       return rows;
+    }
+
+    async function refreshFinalistPreview() {
+      try {
+        showError("");
+        const rows = await prepareFinalistRows();
+        assignedRows = [];
+        renderResults([]);
+        setFinalistStatus(`已讀取 ${importedRows.length} 筆考生資料，可進入複試名單 ${rows.length} 人。`);
+      } catch (error) {
+        renderFinalistReport([]);
+        setFinalistStatus("尚未產生可進入複試名單。");
+        showError(error.message || String(error));
+      }
     }
 
     async function runGrouping() {
@@ -2551,6 +2576,7 @@
         importedRows = await loadRowsFromInput();
         if (!importedRows.length) throw new Error("沒有可分組的有效考生資料。");
         renderFinalistReport(finalistRowsFromRows(importedRows));
+        setFinalistStatus(`已讀取 ${importedRows.length} 筆考生資料，準備進行 S 型分組。`);
         refreshGrouping();
         saveDraft();
       } catch (error) {
@@ -2661,6 +2687,7 @@
     byId("exportFullBtn").addEventListener("click", () => exportCsv(true));
     byId("exportScoreRosterCsvBtn").addEventListener("click", exportScoreRosterCsv);
     byId("exportScoreRosterXlsxBtn").addEventListener("click", exportScoreRosterXlsx);
+    byId("refreshFinalistBtn").addEventListener("click", refreshFinalistPreview);
     byId("exportFinalistPdfBtn").addEventListener("click", exportFinalistPdf);
     byId("exportFinalistXlsxBtn").addEventListener("click", exportFinalistXlsx);
     byId("exportReportPdfBtn").addEventListener("click", exportReportPdf);
@@ -2671,13 +2698,15 @@
       renderFinalistReport([]);
       renderResults([]);
       saveDraft();
+      if (byId("pasteData").value.trim()) refreshFinalistPreview();
     });
-    byId("fileInput").addEventListener("change", () => {
+    byId("fileInput").addEventListener("change", async () => {
       importedRows = [];
       assignedRows = [];
       renderFinalistReport([]);
       renderResults([]);
       saveDraft();
+      if (byId("fileInput").files[0]) await refreshFinalistPreview();
     });
     byId("groupCount").addEventListener("input", () => {
       saveDraft();
@@ -2685,7 +2714,11 @@
     });
     byId("finalistCount").addEventListener("input", () => {
       saveDraft();
-      if (importedRows.length) refreshGrouping();
+      if (importedRows.length) {
+        renderFinalistReport(finalistRowsFromRows(importedRows));
+        setFinalistStatus(`已更新可進入複試名單：${finalistRowsFromRows(importedRows).length} 人。`);
+        if (assignedRows.length) refreshGrouping();
+      }
     });
     byId("labelMode").addEventListener("change", () => {
       saveDraft();
