@@ -569,6 +569,23 @@
       display: none;
     }
 
+    body.auth-checking.auth-recovering {
+      overflow: auto;
+      background: var(--page);
+    }
+
+    body.auth-checking.auth-recovering .app-topbar {
+      display: flex;
+    }
+
+    body.auth-checking.auth-recovering .shell {
+      display: grid;
+    }
+
+    body.auth-checking.auth-recovering .auth-screen {
+      display: none;
+    }
+
     body.auth-ready .auth-screen {
       display: none;
     }
@@ -950,6 +967,16 @@
   </style>
 </head>
 <body class="auth-checking">
+  <script>
+    try {
+      const internalNavigationStartedAt = Number(sessionStorage.getItem("nursingExamInternalNavigation") || 0);
+      if (internalNavigationStartedAt > 0 && Date.now() - internalNavigationStartedAt < 10000) {
+        document.body.classList.add("auth-recovering");
+      }
+    } catch {
+      // Normal auth checking continues if sessionStorage is unavailable.
+    }
+  </script>
   <section class="auth-screen" aria-label="系統登入">
     <div class="auth-card" id="authCard">
       <div class="auth-brand">
@@ -1337,6 +1364,7 @@
     function unlockApp() {
       document.body.classList.remove("auth-locked");
       document.body.classList.remove("auth-checking");
+      document.body.classList.remove("auth-recovering");
       document.body.classList.add("auth-ready");
     }
 
@@ -1344,6 +1372,7 @@
       document.body.classList.add("auth-locked");
       document.body.classList.remove("auth-ready");
       document.body.classList.remove("auth-checking");
+      document.body.classList.remove("auth-recovering");
     }
 
     async function lockApp() {
