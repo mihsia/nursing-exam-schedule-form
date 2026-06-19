@@ -2515,12 +2515,23 @@
     async function loadRowsFromInput() {
       const file = byId("fileInput").files[0];
       const pasted = byId("pasteData").value.trim();
+      let rows = [];
       if (file) {
         const lower = file.name.toLowerCase();
-        if (lower.endsWith(".xlsx")) return normalizeRows(await parseXlsx(file));
-        return normalizeRows(parseDelimited(await file.text()));
+        rows = lower.endsWith(".xlsx")
+          ? normalizeRows(await parseXlsx(file))
+          : normalizeRows(parseDelimited(await file.text()));
+        importedRows = rows;
+        saveDraft();
+        return rows;
       }
-      if (pasted) return normalizeRows(parseDelimited(pasted));
+      if (pasted) {
+        rows = normalizeRows(parseDelimited(pasted));
+        importedRows = rows;
+        saveDraft();
+        return rows;
+      }
+      if (importedRows.length) return importedRows;
       throw new Error("請先匯入 Excel/CSV，或貼上資料。");
     }
 
@@ -2543,8 +2554,6 @@
         refreshGrouping();
         saveDraft();
       } catch (error) {
-        renderFinalistReport([]);
-        renderResults([]);
         showError(error.message || String(error));
       }
     }
@@ -2559,8 +2568,6 @@
         renderResults(groupedRows);
         saveLatestGroupingResult(groupedRows);
       } catch (error) {
-        renderFinalistReport([]);
-        renderResults([]);
         showError(error.message || String(error));
       }
     }
