@@ -2154,7 +2154,7 @@
           rank: row.rank
         }))
       }));
-      localStorage.setItem(namespacedKey, JSON.stringify({
+      const payload = JSON.stringify({
         version: 1,
         savedAt: new Date().toISOString(),
         savedAtText: new Date().toLocaleString("zh-TW"),
@@ -2163,7 +2163,9 @@
         finalistCount: byId("finalistCount").value,
         labelMode: byId("labelMode").value,
         groups
-      }));
+      });
+      localStorage.setItem(namespacedKey, payload);
+      localStorage.setItem(latestGroupingBaseKey, payload);
     }
 
     function reportCell(row, sequence) {

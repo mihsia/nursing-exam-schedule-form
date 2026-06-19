@@ -1948,9 +1948,24 @@
     function readLatestGroupingResult() {
       try {
         const namespacedKey = `${latestGroupingBaseKey}:${authStatus.username || "anonymous"}`;
-        const result = JSON.parse(localStorage.getItem(namespacedKey) || localStorage.getItem(latestGroupingBaseKey) || "null");
-        if (!result || !Array.isArray(result.groups)) return null;
-        return result;
+        const candidates = [namespacedKey, latestGroupingBaseKey];
+        for (let index = 0; index < localStorage.length; index += 1) {
+          const key = localStorage.key(index);
+          if (key?.startsWith(`${latestGroupingBaseKey}:`) && !candidates.includes(key)) {
+            candidates.push(key);
+          }
+        }
+        return candidates
+          .map((key) => {
+            try {
+              const result = JSON.parse(localStorage.getItem(key) || "null");
+              return result && Array.isArray(result.groups) ? result : null;
+            } catch {
+              return null;
+            }
+          })
+          .filter(Boolean)
+          .sort((a, b) => String(b.savedAt || "").localeCompare(String(a.savedAt || "")))[0] || null;
       } catch {
         return null;
       }
@@ -2650,6 +2665,7 @@
         setTimeout(async () => {
           unlockApp();
           await loadRemoteRecords();
+          refreshGroupingImportOptions();
           submit.classList.remove("success");
           configureAuthScreen();
         }, 450);
@@ -2678,6 +2694,7 @@
       if (authStatus.configured && authStatus.authenticated) {
         unlockApp();
         await loadRemoteRecords();
+        refreshGroupingImportOptions();
       } else {
         showAuthScreen();
       }
