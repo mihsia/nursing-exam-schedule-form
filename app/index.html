@@ -1483,6 +1483,21 @@
             <input id="oralDuration" type="number" min="1" value="2">
           </label>
         </div>
+        <div class="grid" style="margin-top: 18px;">
+          <label>儲存名稱
+            <input id="timeSettingName" placeholder="例如：A組複試流程">
+          </label>
+          <label>載入已儲存流程
+            <select id="timeSettingSelect">
+              <option value="">尚無流程時間設定</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions" style="position: static; margin: 10px 0 0; padding: 0; border: 0; background: transparent;">
+          <button class="success" id="saveTimeSettingBtn" type="button">儲存流程時間設定</button>
+          <button id="loadTimeSettingBtn" type="button">載入流程時間設定</button>
+        </div>
+        <div class="status" id="timeSettingStatus">流程時間會自動暫存；也可在此儲存成常用設定。</div>
       </fieldset>
 
       <fieldset class="flow-break" id="workflowBreak" data-workflow-content="5">
@@ -1571,7 +1586,7 @@
       </div>
     </section>
 
-    <section class="preview-wrap" id="workflowPreview" aria-label="預覽" data-workflow-content="6 7">
+    <section class="preview-wrap" id="workflowPreview" aria-label="預覽" data-workflow-content="5 6 7">
       <article class="sheet" id="sheet">
         <h2 class="doc-title" id="docTitle"></h2>
         <div class="doc-meta">
@@ -1621,6 +1636,11 @@
       "practiceDuration", "practiceReminderBeforeEnd", "oralReadyOffset",
       "oralOffset", "oralReminderBeforeEnd", "oralDuration", "breakRules", "tickets", "notes"
     ];
+    const timeFields = [
+      "guideOffset", "prepOffset", "prepDuration", "practiceOffset",
+      "practiceDuration", "practiceReminderBeforeEnd", "oralReadyOffset",
+      "oralOffset", "oralReminderBeforeEnd", "oralDuration", "breakRules"
+    ];
 
     const sampleTickets = `01120019
 01120026
@@ -1651,6 +1671,7 @@
     const defaultStampSrc = reportStamp.getAttribute("src");
     const historyKey = "nursingExamScheduleHistoryV1";
     const draftKey = "nursingExamScheduleDraftV1";
+    const timeSettingKey = "nursingExamScheduleTimeSettingsV1";
     const latestGroupingBaseKey = "nursingExamLatestGroupingResultV1";
     let authBackend = "firebase";
     let authStatus = { configured: false, authenticated: false };
@@ -1750,6 +1771,84 @@
         exportedAt: new Date().toISOString(),
         records: history.records.slice(0, 80)
       }));
+    }
+
+    function readTimeSettings() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(timeSettingKey) || "{}");
+        return { records: Array.isArray(parsed.records) ? parsed.records : [] };
+      } catch {
+        return { records: [] };
+      }
+    }
+
+    function writeTimeSettings(settings) {
+      localStorage.setItem(timeSettingKey, JSON.stringify({
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        records: settings.records.slice(0, 40)
+      }));
+    }
+
+    function timeSettingData() {
+      return Object.fromEntries(timeFields.map((id) => [id, byId(id).value]));
+    }
+
+    function setTimeSettingStatus(message) {
+      byId("timeSettingStatus").textContent = message;
+    }
+
+    function defaultTimeSettingName() {
+      const group = byId("groupText").value.trim() || "未分組";
+      return `${group}_流程時間`;
+    }
+
+    function refreshTimeSettingSelect() {
+      const select = byId("timeSettingSelect");
+      const settings = readTimeSettings();
+      select.innerHTML = settings.records.length
+        ? settings.records.map((record) => `<option value="${escapeHtml(record.id)}">${escapeHtml(record.name)}（${escapeHtml(record.savedAtText)}）</option>`).join("")
+        : '<option value="">尚無流程時間設定</option>';
+    }
+
+    function applyTimeSettingData(data) {
+      timeFields.forEach((id) => {
+        if (Object.prototype.hasOwnProperty.call(data, id)) {
+          byId(id).value = data[id];
+        }
+      });
+      render();
+      saveDraft();
+    }
+
+    function saveTimeSetting() {
+      const now = new Date();
+      const name = byId("timeSettingName").value.trim() || defaultTimeSettingName();
+      const settings = readTimeSettings();
+      const record = {
+        id: `time-${Date.now()}`,
+        name,
+        savedAt: now.toISOString(),
+        savedAtText: now.toLocaleString("zh-TW"),
+        data: timeSettingData()
+      };
+      settings.records = [record, ...settings.records.filter((item) => item.name !== name)];
+      writeTimeSettings(settings);
+      refreshTimeSettingSelect();
+      byId("timeSettingSelect").value = record.id;
+      setTimeSettingStatus(`已儲存「${name}」。`);
+    }
+
+    function loadTimeSetting() {
+      const id = byId("timeSettingSelect").value;
+      const record = readTimeSettings().records.find((item) => item.id === id);
+      if (!record?.data) {
+        setTimeSettingStatus("請先選擇要載入的流程時間設定。");
+        return;
+      }
+      applyTimeSettingData(record.data);
+      byId("timeSettingName").value = record.name;
+      setTimeSettingStatus(`已載入「${record.name}」。`);
     }
 
     function readLocalDraft() {
@@ -2790,11 +2889,37 @@
       setDbStatus("已載入附件範例。");
     }
 
+    const updateFromFieldChange = () => {
+      render();
+      saveDraft();
+    };
+
     fields.forEach((id) => {
+      byId(id).addEventListener("input", updateFromFieldChange);
+      byId(id).addEventListener("change", updateFromFieldChange);
+    });
+
+    timeFields.forEach((id) => {
       byId(id).addEventListener("input", () => {
-        render();
-        saveDraft();
+        setTimeSettingStatus("流程時間已更新，右側預覽會同步調整。");
       });
+      byId(id).addEventListener("change", () => {
+        setTimeSettingStatus("流程時間已更新，右側預覽會同步調整。");
+      });
+    });
+
+    byId("timeSettingName").addEventListener("input", () => {
+      if (byId("timeSettingName").value.trim()) {
+        setTimeSettingStatus("可儲存為新的流程時間設定。");
+      }
+    });
+
+    byId("saveTimeSettingBtn").addEventListener("click", saveTimeSetting);
+    byId("loadTimeSettingBtn").addEventListener("click", loadTimeSetting);
+    byId("timeSettingSelect").addEventListener("change", () => {
+      if (byId("timeSettingSelect").value) {
+        setTimeSettingStatus("已選擇流程時間設定，按「載入」即可套用。");
+      }
     });
 
     byId("printBtn").addEventListener("click", () => {
@@ -2843,6 +2968,7 @@
     });
 
     refreshHistorySelect();
+    refreshTimeSettingSelect();
     loadDraft();
     refreshGroupingImportOptions();
     updateStampView();
