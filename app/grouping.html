@@ -1002,33 +1002,43 @@
       }
 
       body.print-grouping-report .report-preview h2 {
-        margin: 0 0 4mm;
-        font-size: 16pt;
-        line-height: 1.25;
+        margin: 0 0 2.5mm;
+        font-size: 15pt;
+        line-height: 1.18;
       }
 
       body.print-grouping-report .report-table {
         width: 100%;
-        margin: 0 0 3mm;
+        margin: 0;
         table-layout: fixed;
         border-collapse: collapse;
+        break-inside: avoid;
         page-break-inside: avoid;
       }
 
       body.print-grouping-report .report-table th,
       body.print-grouping-report .report-table td {
-        height: 6.2mm;
-        padding: 1.2mm 1.4mm;
-        font-size: 10.5pt;
-        line-height: 1.15;
+        height: 5.45mm;
+        padding: 0.65mm 1mm;
+        font-size: 10.8pt;
+        line-height: 1.05;
         overflow: hidden;
         text-overflow: clip;
         white-space: nowrap;
       }
 
       body.print-grouping-report .report-table th {
-        height: 7mm;
-        font-size: 10.8pt;
+        height: 6.2mm;
+        font-size: 11pt;
+      }
+
+      body.print-grouping-report .report-table thead {
+        display: table-header-group;
+      }
+
+      body.print-grouping-report .report-table tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
       }
 
       body.print-grouping-report .report-name-cell {
@@ -1048,7 +1058,7 @@
 
       @page {
         size: A4 landscape;
-        margin: 4mm;
+        margin: 3mm;
       }
     }
   </style>
